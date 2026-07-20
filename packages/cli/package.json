@@ -1,0 +1,26 @@
+{
+  "name": "movesafe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "movesafe": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@movesafe/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3",
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.10"
+  }
+}
