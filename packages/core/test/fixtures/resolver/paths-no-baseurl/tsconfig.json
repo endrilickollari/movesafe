@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@x/*": ["lib/*"]
+    }
+  },
+  "include": ["src"]
+}

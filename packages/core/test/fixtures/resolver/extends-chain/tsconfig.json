@@ -1,0 +1,7 @@
+{
+  "extends": "./parent.json",
+  "compilerOptions": {
+    "module": "ESNext"
+  },
+  "include": ["src"]
+}

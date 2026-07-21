@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "composite": true
+  },
+  "references": [{ "path": "./pkg-a" }, { "path": "./pkg-b" }]
+}
