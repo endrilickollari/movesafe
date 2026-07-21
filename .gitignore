@@ -5,3 +5,8 @@ coverage
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Intentional fixture node_modules trees, exercising real node_modules-based
+# resolution in tests without depending on the real lockfile.
+!packages/core/test/fixtures/**/node_modules
+!packages/core/test/fixtures/**/node_modules/**

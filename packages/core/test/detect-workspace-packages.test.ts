@@ -78,24 +78,39 @@ describe('detectWorkspacePackages', () => {
     );
   });
 
-  it('composes with resolveSpecifier with no adapter needed, against the real repo', () => {
-    // Uses the real monorepo (root two levels above packages/core) rather than
-    // a synthetic fixture, since exercising a real pnpm-symlinked workspace
-    // package is exactly what this integration is meant to prove.
+  it('detects the real monorepo\'s own workspace packages', () => {
+    // Uses the real monorepo (root two levels above packages/core) as a smoke
+    // test of detection itself. Deliberately does not resolve any specifier
+    // through this map: that would follow @movesafe/core's package.json into
+    // dist/index.d.ts, which only exists after a build step CI's test job
+    // does not run first (test and build are intentionally decoupled).
     const repoRoot = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
-    const { workspacePackages } = detectWorkspacePackages(repoRoot);
+    const { packageManager, hasTurborepo, workspacePackages } = detectWorkspacePackages(repoRoot);
+    expect(packageManager).toBe('pnpm');
+    expect(hasTurborepo).toBe(true);
     expect(workspacePackages.get('@movesafe/core')).toBe(`${repoRoot}/packages/core`);
     expect(workspacePackages.get('movesafe')).toBe(`${repoRoot}/packages/cli`);
+  });
 
-    const cliTsconfig = loadTsconfig(`${repoRoot}/packages/cli/tsconfig.json`);
-    const containingFile = `${repoRoot}/packages/cli/src/index.ts`;
-
-    const withoutMap = resolveSpecifier('@movesafe/core', containingFile, cliTsconfig);
-    expect(withoutMap.result.kind).toBe('external');
-
-    const withMap = resolveSpecifier('@movesafe/core', containingFile, cliTsconfig, {
-      workspacePackages,
-    });
-    expect(withMap.result).toMatchObject({ kind: 'resolved', isWorkspacePackage: true });
+  it('composes with resolveSpecifier with no adapter needed', () => {
+    // Self-contained fixture (no build step involved): a workspacePackages
+    // map in exactly the shape detectWorkspacePackages produces, resolved
+    // against the same node_modules-based workspace-package fixture 1.3's
+    // own tests use.
+    const resolverFixture = new URL(
+      './fixtures/resolver/module-resolution/workspace-package/pkg-consumer',
+      import.meta.url,
+    ).pathname;
+    const workspacePackages = new Map([
+      ['@fixture/pkg-lib', `${resolverFixture}/node_modules/@fixture/pkg-lib`],
+    ]);
+    const tsconfig = loadTsconfig(`${resolverFixture}/tsconfig.json`);
+    const { result } = resolveSpecifier(
+      '@fixture/pkg-lib',
+      `${resolverFixture}/src/index.ts`,
+      tsconfig,
+      { workspacePackages },
+    );
+    expect(result).toMatchObject({ kind: 'resolved', isWorkspacePackage: true });
   });
 });
