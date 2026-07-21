@@ -1,7 +1,8 @@
 export type {
+  FileScanResult,
   ImportFormKind,
   ImportSpecifierRecord,
   ScanWarning,
-  FileScanResult,
+  ScanWarningKind,
 } from './types.js';
 export { scanFile } from './scan-file.js';

@@ -1,0 +1,242 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildImportGraph fixture-repo snapshots > aliases via tsconfig paths 1`] = `
+{
+  "configFilePath": "tsconfig.json",
+  "edges": [
+    {
+      "formKind": "import",
+      "fromFilePath": "src/index.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 51,
+        "start": 28,
+      },
+      "quote": "'",
+      "specifier": "@app/widgets/label.js",
+      "specifierOffset": {
+        "end": 50,
+        "start": 29,
+      },
+      "statementOffset": {
+        "end": 52,
+        "start": 0,
+      },
+      "target": {
+        "filePath": "src/widgets/label.ts",
+        "kind": "inProject",
+      },
+    },
+  ],
+  "nodes": [
+    {
+      "filePath": "src/index.ts",
+    },
+    {
+      "filePath": "src/widgets/label.ts",
+    },
+  ],
+  "warnings": [],
+}
+`;
+
+exports[`buildImportGraph fixture-repo snapshots > barrel-heavy re-exports 1`] = `
+{
+  "configFilePath": "tsconfig.json",
+  "edges": [
+    {
+      "formKind": "import",
+      "fromFilePath": "src/consumer.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 41,
+        "start": 29,
+      },
+      "quote": "'",
+      "specifier": "./index.js",
+      "specifierOffset": {
+        "end": 40,
+        "start": 30,
+      },
+      "statementOffset": {
+        "end": 42,
+        "start": 0,
+      },
+      "target": {
+        "filePath": "src/index.ts",
+        "kind": "inProject",
+      },
+    },
+    {
+      "formKind": "exportStar",
+      "fromFilePath": "src/index.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 27,
+        "start": 14,
+      },
+      "quote": "'",
+      "specifier": "./button.js",
+      "specifierOffset": {
+        "end": 26,
+        "start": 15,
+      },
+      "statementOffset": {
+        "end": 28,
+        "start": 0,
+      },
+      "target": {
+        "filePath": "src/button.ts",
+        "kind": "inProject",
+      },
+    },
+    {
+      "formKind": "exportFrom",
+      "fromFilePath": "src/index.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 61,
+        "start": 50,
+      },
+      "quote": "'",
+      "specifier": "./card.js",
+      "specifierOffset": {
+        "end": 60,
+        "start": 51,
+      },
+      "statementOffset": {
+        "end": 62,
+        "start": 29,
+      },
+      "target": {
+        "filePath": "src/card.ts",
+        "kind": "inProject",
+      },
+    },
+  ],
+  "nodes": [
+    {
+      "filePath": "src/button.ts",
+    },
+    {
+      "filePath": "src/card.ts",
+    },
+    {
+      "filePath": "src/consumer.ts",
+    },
+    {
+      "filePath": "src/index.ts",
+    },
+  ],
+  "warnings": [],
+}
+`;
+
+exports[`buildImportGraph fixture-repo snapshots > plain relative imports 1`] = `
+{
+  "configFilePath": "tsconfig.json",
+  "edges": [
+    {
+      "formKind": "import",
+      "fromFilePath": "src/index.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 50,
+        "start": 31,
+      },
+      "quote": "'",
+      "specifier": "./utils/format.js",
+      "specifierOffset": {
+        "end": 49,
+        "start": 32,
+      },
+      "statementOffset": {
+        "end": 51,
+        "start": 0,
+      },
+      "target": {
+        "filePath": "src/utils/format.ts",
+        "kind": "inProject",
+      },
+    },
+    {
+      "formKind": "import",
+      "fromFilePath": "src/index.ts",
+      "isTypeOnly": true,
+      "literalOffset": {
+        "end": 94,
+        "start": 82,
+      },
+      "quote": "'",
+      "specifier": "./types.js",
+      "specifierOffset": {
+        "end": 93,
+        "start": 83,
+      },
+      "statementOffset": {
+        "end": 95,
+        "start": 52,
+      },
+      "target": {
+        "filePath": "src/types.ts",
+        "kind": "inProject",
+      },
+    },
+  ],
+  "nodes": [
+    {
+      "filePath": "src/index.ts",
+    },
+    {
+      "filePath": "src/types.ts",
+    },
+    {
+      "filePath": "src/utils/format.ts",
+    },
+  ],
+  "warnings": [],
+}
+`;
+
+exports[`buildImportGraph fixture-repo snapshots > pnpm monorepo with a cross-package import 1`] = `
+{
+  "configFilePath": "packages/consumer/tsconfig.json",
+  "edges": [
+    {
+      "formKind": "import",
+      "fromFilePath": "packages/consumer/src/index.ts",
+      "isTypeOnly": false,
+      "literalOffset": {
+        "end": 45,
+        "start": 31,
+      },
+      "quote": "'",
+      "specifier": "@fixture/lib",
+      "specifierOffset": {
+        "end": 44,
+        "start": 32,
+      },
+      "statementOffset": {
+        "end": 46,
+        "start": 0,
+      },
+      "target": {
+        "isWorkspacePackage": true,
+        "kind": "outOfProject",
+        "packageId": {
+          "name": "@fixture/lib",
+          "subModuleName": "index.d.ts",
+          "version": "1.0.0",
+        },
+        "resolvedFileName": "packages/consumer/node_modules/@fixture/lib/index.d.ts",
+      },
+    },
+  ],
+  "nodes": [
+    {
+      "filePath": "packages/consumer/src/index.ts",
+    },
+  ],
+  "warnings": [],
+}
+`;

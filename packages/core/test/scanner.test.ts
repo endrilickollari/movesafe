@@ -145,15 +145,20 @@ describe('scanFile', () => {
     expectRoundTrip(src, specifiers[0]!);
   });
 
-  it('skips computed require/import specifiers without throwing', () => {
+  it('warns on computed require/import specifiers instead of guessing', () => {
     const src = `
       const mod = require(someVar);
       const dyn = import(someVar);
       const tpl = import(\`./x/\${y}\`);
+      import eq = require(someVar);
     `;
     const result = scanFile('virtual.ts', src);
     expect(result.specifiers).toHaveLength(0);
-    expect(result.warnings).toHaveLength(0);
+    expect(result.warnings).toHaveLength(4);
+    expect(result.warnings.every((w) => w.kind === 'computedSpecifier')).toBe(true);
+    expect(result.warnings.map((w) => w.formKind).sort()).toEqual(
+      ['dynamicImport', 'dynamicImport', 'importEqualsRequire', 'requireCall'].sort(),
+    );
   });
 
   it('finds imports nested inside an ambient module block', () => {

@@ -28,14 +28,16 @@ export interface ImportSpecifierRecord {
   readonly statementOffset: SourceOffset;
 }
 
-/**
- * Placeholder shape. A later ticket (computed dynamic import / require
- * detection) owns the real fields and the logic that populates this array;
- * the scanner itself never pushes into it. Kept here only so FileScanResult's
- * public shape is stable across both tickets.
- */
+export type ScanWarningKind = 'computedSpecifier';
+
 export interface ScanWarning {
-  readonly kind: string;
+  readonly kind: ScanWarningKind;
+  /**
+   * Which call-like form triggered this — reuses ImportFormKind; only
+   * 'requireCall' | 'dynamicImport' | 'importEqualsRequire' ever appear here.
+   */
+  readonly formKind: ImportFormKind;
+  readonly message: string;
   readonly statementOffset: SourceOffset;
 }
 

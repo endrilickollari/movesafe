@@ -4,3 +4,4 @@ export * from './ts-utils/index.js';
 export * from './scanner/index.js';
 export * from './resolver/index.js';
 export * from './workspace/index.js';
+export * from './graph/index.js';
