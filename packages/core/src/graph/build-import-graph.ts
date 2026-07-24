@@ -1,5 +1,6 @@
-import { loadTsconfig, resolveSpecifier } from '../resolver/index.js';
+import { resolveSpecifier } from '../module-resolution/index.js';
 import { scanFile } from '../scanner/index.js';
+import { loadTsconfig } from '../tsconfig/index.js';
 import { classifyEdgeTarget } from './classify-edge-target.js';
 import { discoverProjectFiles } from './discover-project-files.js';
 import type { BuildImportGraphOptions, GraphWarning, ImportGraph, ImportGraphEdge } from './types.js';

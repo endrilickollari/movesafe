@@ -1,4 +1,4 @@
-import type { ResolvedSpecifier } from '../resolver/types.js';
+import type { ResolvedSpecifier } from '../module-resolution/types.js';
 import type { GraphEdgeTarget } from './types.js';
 
 export function classifyEdgeTarget(

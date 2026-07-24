@@ -10,3 +10,4 @@ coverage
 # resolution in tests without depending on the real lockfile.
 !packages/core/test/fixtures/**/node_modules
 !packages/core/test/fixtures/**/node_modules/**
+/graphify-out/

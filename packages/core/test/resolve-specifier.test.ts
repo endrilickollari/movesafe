@@ -1,6 +1,7 @@
 import type * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { classifyResolvedModule, loadTsconfig, resolveSpecifier } from '../src/resolver/index.js';
+import { classifyResolvedModule, resolveSpecifier } from '../src/module-resolution/index.js';
+import { loadTsconfig } from '../src/tsconfig/index.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/resolver/module-resolution/${segments.join('/')}`, import.meta.url)

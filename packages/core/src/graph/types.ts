@@ -1,6 +1,7 @@
 import type { ImportFormKind } from '../scanner/types.js';
 import type { ScanWarning } from '../scanner/types.js';
-import type { ResolveSpecifierWarning, TsconfigDiagnostic } from '../resolver/types.js';
+import type { ResolveSpecifierWarning } from '../module-resolution/types.js';
+import type { TsconfigDiagnostic } from '../tsconfig/types.js';
 import type { SourceOffset } from '../ts-utils/types.js';
 
 export type GraphEdgeTargetKind =

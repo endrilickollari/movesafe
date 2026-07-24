@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { loadTsconfig } from '../src/resolver/index.js';
+import { loadTsconfig } from '../src/tsconfig/index.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/resolver/${segments.join('/')}`, import.meta.url).pathname;

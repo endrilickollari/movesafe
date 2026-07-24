@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
+import type { LoadedTsconfig } from '../tsconfig/index.js';
 import { classifyResolvedModule } from './classify-resolution.js';
 import type {
-  LoadedTsconfig,
   ResolvedSpecifier,
   ResolveSpecifierOptions,
   ResolveSpecifierResult,

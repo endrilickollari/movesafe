@@ -1,4 +1,4 @@
-import type { LoadedTsconfig } from '../resolver/types.js';
+import type { LoadedTsconfig } from '../tsconfig/types.js';
 
 export interface DiscoveredProjectFiles {
   readonly sourceFiles: readonly string[];
