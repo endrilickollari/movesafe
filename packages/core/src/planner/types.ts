@@ -29,3 +29,8 @@ export interface MovePlan {
   readonly edits: readonly Edit[];
   readonly diagnostics: readonly MovePlanDiagnostic[];
 }
+
+export interface CollectedEdits {
+  readonly edits: Edit[];
+  readonly diagnostics: MovePlanDiagnostic[];
+}

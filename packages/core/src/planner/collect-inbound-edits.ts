@@ -2,12 +2,7 @@ import type { ImportGraph } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
 import { computeAliasSpecifier, matchPathsAlias } from './match-paths-alias.js';
 import { computeRelativeSpecifier } from './compute-relative-specifier.js';
-import type { Edit, MovePlanDiagnostic } from './types.js';
-
-export interface CollectedEdits {
-  readonly edits: Edit[];
-  readonly diagnostics: MovePlanDiagnostic[];
-}
+import type { CollectedEdits, Edit, MovePlanDiagnostic } from './types.js';
 
 function computeNewSpecifier(
   specifier: string,
