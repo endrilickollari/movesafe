@@ -14,7 +14,8 @@ export type MovePlanDiagnosticCode =
   | 'source-not-in-graph'
   | 'source-equals-destination'
   | 'destination-collides-with-existing-file'
-  | 'unrecomputable-inbound-specifier';
+  | 'unrecomputable-inbound-specifier'
+  | 'barrel-reexport-relocation-candidate';
 
 export interface MovePlanDiagnostic {
   readonly severity: 'error' | 'warning';
