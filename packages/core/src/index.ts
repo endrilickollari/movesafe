@@ -7,3 +7,4 @@ export * from './module-resolution/index.js';
 export * from './workspace/index.js';
 export * from './graph/index.js';
 export * from './planner/index.js';
+export * from './apply/index.js';
