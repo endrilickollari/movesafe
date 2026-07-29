@@ -9,3 +9,4 @@ export * from './graph/index.js';
 export * from './planner/index.js';
 export * from './apply/index.js';
 export * from './diff/index.js';
+export * from './cross-package/index.js';

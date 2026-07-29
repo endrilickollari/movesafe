@@ -19,7 +19,12 @@ export type MovePlanDiagnosticCode =
   | 'source-directory-empty'
   | 'destination-under-source'
   | 'destination-is-a-file'
-  | 'unrecomputable-specifier';
+  | 'unrecomputable-specifier'
+  | 'file-not-in-workspace-package'
+  | 'not-a-cross-package-move'
+  | 'package-missing-tsconfig'
+  | 'circular-dependency-warning'
+  | 'third-party-references-not-rewritten';
 
 export interface MovePlanDiagnostic {
   readonly severity: 'error' | 'warning';
