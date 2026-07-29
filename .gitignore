@@ -11,3 +11,4 @@ coverage
 !packages/core/test/fixtures/**/node_modules
 !packages/core/test/fixtures/**/node_modules/**
 /graphify-out/
+/test_repos/
