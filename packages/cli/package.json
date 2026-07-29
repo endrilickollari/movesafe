@@ -15,7 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@movesafe/core": "workspace:*"
+    "@movesafe/core": "workspace:*",
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
