@@ -15,7 +15,11 @@ export type MovePlanDiagnosticCode =
   | 'source-equals-destination'
   | 'destination-collides-with-existing-file'
   | 'unrecomputable-inbound-specifier'
-  | 'barrel-reexport-relocation-candidate';
+  | 'barrel-reexport-relocation-candidate'
+  | 'source-directory-empty'
+  | 'destination-under-source'
+  | 'destination-is-a-file'
+  | 'unrecomputable-specifier';
 
 export interface MovePlanDiagnostic {
   readonly severity: 'error' | 'warning';
@@ -34,4 +38,17 @@ export interface MovePlan {
 export interface CollectedEdits {
   readonly edits: Edit[];
   readonly diagnostics: MovePlanDiagnostic[];
+}
+
+export interface FileMove {
+  readonly fromFilePath: string;
+  readonly toFilePath: string;
+}
+
+export interface DirectoryMovePlan {
+  readonly fromDirPath: string;
+  readonly toDirPath: string;
+  readonly moves: readonly FileMove[];
+  readonly edits: readonly Edit[];
+  readonly diagnostics: readonly MovePlanDiagnostic[];
 }

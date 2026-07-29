@@ -32,8 +32,17 @@ export function checkStaleness(plan: MovePlan): ApplyDiagnostic[] {
     });
   }
 
+  diagnostics.push(...checkEditsAgainstDisk(plan.edits));
+
+  return diagnostics;
+}
+
+/** Confirms every edit's `oldText` still matches the live content at `span`, grouping by file so each is read only once. Shared by both single-file and directory-move staleness checks. */
+export function checkEditsAgainstDisk(edits: readonly Edit[]): ApplyDiagnostic[] {
+  const diagnostics: ApplyDiagnostic[] = [];
+
   const editsByFile = new Map<string, Edit[]>();
-  for (const edit of plan.edits) {
+  for (const edit of edits) {
     const existing = editsByFile.get(edit.file);
     if (existing) {
       existing.push(edit);
@@ -42,7 +51,7 @@ export function checkStaleness(plan: MovePlan): ApplyDiagnostic[] {
     }
   }
 
-  for (const [file, edits] of editsByFile) {
+  for (const [file, fileEdits] of editsByFile) {
     if (!existsSync(file)) {
       diagnostics.push({
         severity: 'error',
@@ -54,7 +63,7 @@ export function checkStaleness(plan: MovePlan): ApplyDiagnostic[] {
     }
 
     const currentText = readFileSync(file, 'utf8');
-    for (const edit of edits) {
+    for (const edit of fileEdits) {
       const liveText = currentText.slice(edit.span.start, edit.span.end);
       if (liveText !== edit.oldText) {
         diagnostics.push({

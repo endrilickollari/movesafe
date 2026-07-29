@@ -3,7 +3,8 @@ export type ApplyDiagnosticCode =
   | 'source-file-missing'
   | 'destination-already-exists'
   | 'stale-content'
-  | 'rename-failed';
+  | 'rename-failed'
+  | 'non-source-files-left-behind';
 
 export interface ApplyDiagnostic {
   readonly severity: 'error' | 'warning';
