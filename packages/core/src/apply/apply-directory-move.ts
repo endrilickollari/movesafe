@@ -1,74 +1,11 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { DirectoryMovePlan, Edit } from '../planner/types.js';
 import { applyEditsToContent } from './apply-edits-to-content.js';
-import { checkEditsAgainstDisk } from './check-staleness.js';
-import type { CompletedSwap } from './file-swap.js';
-import { renameFailure, rollbackSwaps, swapInNewContent, tempSiblingPath } from './file-swap.js';
+import { checkDirectoryStaleness } from './check-staleness.js';
+import type { CompletedMove, CompletedSwap } from './file-swap.js';
+import { renameFailure, rollbackMoves, rollbackSwaps, swapInNewContent, tempSiblingPath } from './file-swap.js';
 import type { ApplyDiagnostic, ApplyResult } from './types.js';
-
-interface CompletedMove {
-  readonly fromFilePath: string;
-  readonly toFilePath: string;
-  readonly hadOwnEdits: boolean;
-}
-
-function checkDirectoryStaleness(plan: DirectoryMovePlan): ApplyDiagnostic[] {
-  const diagnostics: ApplyDiagnostic[] = [];
-
-  for (const move of plan.moves) {
-    if (!existsSync(move.fromFilePath)) {
-      diagnostics.push({
-        severity: 'error',
-        code: 'source-file-missing',
-        message: `${move.fromFilePath} no longer exists — it may have been moved or deleted since planning.`,
-        path: move.fromFilePath,
-      });
-    }
-    if (existsSync(move.toFilePath)) {
-      diagnostics.push({
-        severity: 'error',
-        code: 'destination-already-exists',
-        message: `${move.toFilePath} now exists — it may have been created since planning.`,
-        path: move.toFilePath,
-      });
-    }
-  }
-
-  diagnostics.push(...checkEditsAgainstDisk(plan.edits));
-
-  return diagnostics;
-}
-
-/**
- * Rolls back completed moves in the deferred-unlink scheme: a move with no
- * own edits is a plain rename, reversed by renaming back; a move that had
- * own edits never touched its source (the new content was written to a temp
- * file and swapped into the destination), so rolling it back only means
- * discarding that destination — the untouched source needs no repair.
- */
-function rollbackMoves(moves: readonly CompletedMove[]): void {
-  for (const move of moves) {
-    try {
-      if (move.hadOwnEdits) {
-        rmSync(move.toFilePath, { force: true });
-      } else {
-        renameSync(move.toFilePath, move.fromFilePath);
-      }
-    } catch {
-      // Best-effort: nothing more we can do if even the rollback fails.
-    }
-  }
-}
 
 function countLeftoverFiles(dirPath: string): number {
   if (!existsSync(dirPath)) return 0;

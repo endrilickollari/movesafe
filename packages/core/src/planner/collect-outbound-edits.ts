@@ -1,6 +1,7 @@
 import type { GraphEdgeTarget, ImportGraph } from '../graph/types.js';
+import { collectEditsFromEdges } from './collect-edits-from-edges.js';
 import { computeRelativeSpecifier } from './compute-relative-specifier.js';
-import type { CollectedEdits, Edit } from './types.js';
+import type { CollectedEdits } from './types.js';
 
 /**
  * Alias and external specifiers resolve independently of the importing
@@ -26,27 +27,17 @@ export function collectOutboundEdits(
   toFilePath: string,
   graph: ImportGraph,
 ): CollectedEdits {
-  const edits: Edit[] = [];
-
   const outboundEdges = graph.edges.filter((edge) => edge.fromFilePath === fromFilePath);
 
-  for (const edge of outboundEdges) {
-    if (!edge.specifier.startsWith('.')) continue;
+  return collectEditsFromEdges(outboundEdges, (edge) => {
+    if (!edge.specifier.startsWith('.')) return { kind: 'skip' };
 
     const targetFilePath = resolveOutboundTargetFilePath(edge.target);
-    if (targetFilePath === undefined) continue;
+    if (targetFilePath === undefined) return { kind: 'skip' };
 
     const newSpecifier = computeRelativeSpecifier(toFilePath, targetFilePath, edge.specifier);
-    if (newSpecifier === edge.specifier) continue;
+    if (newSpecifier === edge.specifier) return { kind: 'skip' };
 
-    edits.push({
-      file: fromFilePath,
-      span: edge.specifierOffset,
-      oldText: edge.specifier,
-      newText: newSpecifier,
-      reason: 'Outbound import specifier recomputed after move.',
-    });
-  }
-
-  return { edits, diagnostics: [] };
+    return { kind: 'edit', newSpecifier, reason: 'Outbound import specifier recomputed after move.' };
+  });
 }

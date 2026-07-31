@@ -1,6 +1,7 @@
 import type { ImportGraph } from '../graph/types.js';
+import { collectEditsFromEdges } from './collect-edits-from-edges.js';
 import type { ComputePackageSpecifierResult } from './compute-package-specifier.js';
-import type { CollectedEdits, Edit, MovePlanDiagnostic } from './types.js';
+import type { CollectedEdits } from './types.js';
 
 /**
  * Every importer still within the source package that references the moved
@@ -15,36 +16,27 @@ export function collectCrossPackageInboundEdits(
   destPackageName: string,
   result: ComputePackageSpecifierResult,
 ): CollectedEdits {
-  const edits: Edit[] = [];
-  const diagnostics: MovePlanDiagnostic[] = [];
-
   const inboundEdges = sourcePackageGraph.edges.filter(
     (edge) => edge.target.kind === 'inProject' && edge.target.filePath === fromFilePath,
   );
 
-  if (inboundEdges.length === 0) {
-    return { edits, diagnostics };
-  }
-
-  for (const edge of inboundEdges) {
+  return collectEditsFromEdges(inboundEdges, (edge) => {
     if (!('specifier' in result)) {
-      diagnostics.push({
-        severity: 'warning',
-        code: 'unrecomputable-specifier',
-        message: `Could not determine a safe package-level specifier for ${destPackageName} — '${edge.specifier}' in ${edge.fromFilePath} left unedited.`,
-        path: edge.fromFilePath,
-      });
-      continue;
+      return {
+        kind: 'unrecomputable',
+        diagnostic: {
+          severity: 'warning',
+          code: 'unrecomputable-specifier',
+          message: `Could not determine a safe package-level specifier for ${destPackageName} — '${edge.specifier}' in ${edge.fromFilePath} left unedited.`,
+          path: edge.fromFilePath,
+        },
+      };
     }
 
-    edits.push({
-      file: edge.fromFilePath,
-      span: edge.specifierOffset,
-      oldText: edge.specifier,
-      newText: result.specifier,
+    return {
+      kind: 'edit',
+      newSpecifier: result.specifier,
       reason: `Inbound import specifier recomputed as a package import after cross-package move to ${destPackageName}.`,
-    });
-  }
-
-  return { edits, diagnostics };
+    };
+  });
 }

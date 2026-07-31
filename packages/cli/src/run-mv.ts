@@ -1,34 +1,19 @@
 import { existsSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
-import {
-  applyMove,
-  buildImportGraph,
-  computePlanDiff,
-  loadTsconfig,
-  planMove,
-  renderPlanDiff,
-} from '@movesafe/core';
-import { findNearestTsconfig } from './find-tsconfig.js';
+import { applyMove, computePlanDiff, loadTsconfig, planMove, renderPlanDiff } from '@movesafe/core';
 import { formatDiagnostics } from './format-diagnostics.js';
+import { resolveImportGraph } from './resolve-import-graph.js';
+import { runCatchingErrors } from './run-catching-errors.js';
+import type { BaseRunOptions, RunResult } from './run-result.js';
+import { fail } from './run-result.js';
 
-export interface RunMvOptions {
+export interface RunMvOptions extends BaseRunOptions {
   readonly from: string;
   readonly to: string;
   readonly dryRun: boolean;
-  readonly color: boolean;
-  readonly cwd: string;
 }
 
-export interface RunMvResult {
-  readonly exitCode: number;
-  readonly lines: string[];
-}
-
-function fail(message: string): RunMvResult {
-  return { exitCode: 1, lines: [`✖ ${message}`] };
-}
-
-export function runMv(options: RunMvOptions): RunMvResult {
+export function runMv(options: RunMvOptions): RunResult {
   const from = resolve(options.cwd, options.from);
   const to = resolve(options.cwd, options.to);
 
@@ -40,15 +25,14 @@ export function runMv(options: RunMvOptions): RunMvResult {
     return fail('Source and destination are the same path.');
   }
 
-  const tsconfigPath = findNearestTsconfig(dirname(from));
-  if (!tsconfigPath) {
+  const resolved = resolveImportGraph(dirname(from));
+  if (!resolved) {
     return fail(`Could not find a tsconfig.json above ${relative(options.cwd, from)}.`);
   }
 
-  try {
-    const tsconfig = loadTsconfig(tsconfigPath);
-    const graph = buildImportGraph(tsconfigPath);
-    const plan = planMove(from, to, graph, tsconfig);
+  return runCatchingErrors(() => {
+    const tsconfig = loadTsconfig(resolved.tsconfigPath);
+    const plan = planMove(from, to, resolved.graph, tsconfig);
 
     if (plan.diagnostics.some((d) => d.severity === 'error')) {
       return { exitCode: 1, lines: formatDiagnostics(plan.diagnostics, { color: options.color }) };
@@ -81,8 +65,5 @@ export function runMv(options: RunMvOptions): RunMvResult {
       ...formatDiagnostics(result.diagnostics, { color: options.color }),
     ];
     return { exitCode: 0, lines };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return fail(`Unexpected error: ${message}`);
-  }
+  });
 }

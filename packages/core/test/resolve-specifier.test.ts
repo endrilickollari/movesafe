@@ -62,6 +62,28 @@ describe('resolveSpecifier', () => {
     expect(result).toMatchObject({ kind: 'external', packageName: 'fake-external-pkg' });
   });
 
+  it('classifies a node:-prefixed built-in as external, not unresolved', () => {
+    const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
+    const { result, warnings } = resolveSpecifier(
+      'node:fs',
+      fixturePath('node-builtin', 'src', 'index.ts'),
+      tsconfig,
+    );
+    expect(warnings).toEqual([]);
+    expect(result).toMatchObject({ kind: 'external', packageName: 'fs' });
+  });
+
+  it('classifies a bare (unprefixed) built-in name the same way', () => {
+    const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
+    const { result, warnings } = resolveSpecifier(
+      'fs',
+      fixturePath('node-builtin', 'src', 'index.ts'),
+      tsconfig,
+    );
+    expect(warnings).toEqual([]);
+    expect(result).toMatchObject({ kind: 'external', packageName: 'fs' });
+  });
+
   it('classifies a workspace-shaped package as external when no workspacePackages map is given', () => {
     const tsconfig = loadTsconfig(fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'));
     const { result, warnings } = resolveSpecifier(

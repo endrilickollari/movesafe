@@ -46,6 +46,33 @@ export function rollbackSwaps(swaps: readonly CompletedSwap[]): void {
   }
 }
 
+export interface CompletedMove {
+  readonly fromFilePath: string;
+  readonly toFilePath: string;
+  readonly hadOwnEdits: boolean;
+}
+
+/**
+ * Rolls back completed moves in the deferred-unlink scheme: a move with no
+ * own edits is a plain rename, reversed by renaming back; a move that had
+ * own edits never touched its source (the new content was written to a temp
+ * file and swapped into the destination), so rolling it back only means
+ * discarding that destination — the untouched source needs no repair.
+ */
+export function rollbackMoves(moves: readonly CompletedMove[]): void {
+  for (const move of moves) {
+    try {
+      if (move.hadOwnEdits) {
+        rmSync(move.toFilePath, { force: true });
+      } else {
+        renameSync(move.toFilePath, move.fromFilePath);
+      }
+    } catch {
+      // Best-effort: nothing more we can do if even the rollback fails.
+    }
+  }
+}
+
 export function renameFailure(path: string, err: unknown): ApplyDiagnostic {
   const message = err instanceof Error ? err.message : String(err);
   return {

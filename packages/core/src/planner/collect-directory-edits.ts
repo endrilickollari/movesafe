@@ -1,9 +1,10 @@
 import type { GraphEdgeTarget, ImportGraph } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
+import { collectEditsFromEdges, type EdgeSpecifierResolution } from './collect-edits-from-edges.js';
 import { computeRelativeSpecifier } from './compute-relative-specifier.js';
 import { detectBarrelRelocation } from './detect-barrel-relocation.js';
 import { computeAliasSpecifier, matchPathsAlias } from './match-paths-alias.js';
-import type { CollectedEdits, Edit, MovePlanDiagnostic } from './types.js';
+import type { CollectedEdits } from './types.js';
 
 /** Alias and external specifiers resolve independently of the importing file's own location — only a relative specifier can need recomputing purely because the importer moved. */
 function resolveFileShapedTargetPath(target: GraphEdgeTarget): string | undefined {
@@ -18,6 +19,8 @@ function resolveFileShapedTargetPath(target: GraphEdgeTarget): string | undefine
       return undefined;
   }
 }
+
+const REASON = 'Import specifier recomputed after directory move.';
 
 /**
  * Generalizes `collectInboundEdits`/`collectOutboundEdits` to an arbitrary
@@ -36,60 +39,52 @@ export function collectDirectoryEdits(
   graph: ImportGraph,
   tsconfig: LoadedTsconfig,
 ): CollectedEdits {
-  const edits: Edit[] = [];
-  const diagnostics: MovePlanDiagnostic[] = [];
-
-  for (const edge of graph.edges) {
+  const collected = collectEditsFromEdges(graph.edges, (edge): EdgeSpecifierResolution => {
     const fromMoved = movedMap.has(edge.fromFilePath);
     const targetFilePath = resolveFileShapedTargetPath(edge.target);
     const targetIsMovedFile =
       edge.target.kind === 'inProject' && targetFilePath !== undefined && movedMap.has(targetFilePath);
 
-    if (!fromMoved && !targetIsMovedFile) continue;
-    if (targetFilePath === undefined) continue;
+    if ((!fromMoved && !targetIsMovedFile) || targetFilePath === undefined) {
+      return { kind: 'skip' };
+    }
 
     const newImporterFilePath = movedMap.get(edge.fromFilePath) ?? edge.fromFilePath;
     const newTargetFilePath = targetIsMovedFile ? movedMap.get(targetFilePath)! : targetFilePath;
 
-    let newSpecifier: string;
-
     if (edge.specifier.startsWith('.')) {
-      newSpecifier = computeRelativeSpecifier(newImporterFilePath, newTargetFilePath, edge.specifier);
-    } else {
-      if (!targetIsMovedFile) continue;
+      const newSpecifier = computeRelativeSpecifier(newImporterFilePath, newTargetFilePath, edge.specifier);
+      if (newSpecifier === edge.specifier) return { kind: 'skip' };
+      return { kind: 'edit', newSpecifier, reason: REASON };
+    }
 
-      const matched = matchPathsAlias(edge.specifier, tsconfig.paths, targetFilePath);
-      const computed = matched
-        ? computeAliasSpecifier(matched, tsconfig.paths, newTargetFilePath, edge.specifier)
-        : undefined;
+    if (!targetIsMovedFile) return { kind: 'skip' };
 
-      if (computed === undefined) {
-        diagnostics.push({
+    const matched = matchPathsAlias(edge.specifier, tsconfig.paths, targetFilePath);
+    const newSpecifier = matched
+      ? computeAliasSpecifier(matched, tsconfig.paths, newTargetFilePath, edge.specifier)
+      : undefined;
+
+    if (newSpecifier === undefined) {
+      return {
+        kind: 'unrecomputable',
+        diagnostic: {
           severity: 'warning',
           code: 'unrecomputable-specifier',
           message: `Could not determine how to preserve the import style of '${edge.specifier}' in ${edge.fromFilePath} — left unedited.`,
           path: edge.fromFilePath,
-        });
-        continue;
-      }
-
-      newSpecifier = computed;
+        },
+      };
     }
 
-    if (newSpecifier === edge.specifier) continue;
+    if (newSpecifier === edge.specifier) return { kind: 'skip' };
+    return { kind: 'edit', newSpecifier, reason: REASON };
+  });
 
-    edits.push({
-      file: edge.fromFilePath,
-      span: edge.specifierOffset,
-      oldText: edge.specifier,
-      newText: newSpecifier,
-      reason: 'Import specifier recomputed after directory move.',
-    });
-  }
-
+  const diagnostics = [...collected.diagnostics];
   for (const [originalPath, newPath] of movedMap) {
     diagnostics.push(...detectBarrelRelocation(originalPath, newPath, graph));
   }
 
-  return { edits, diagnostics };
+  return { edits: collected.edits, diagnostics };
 }

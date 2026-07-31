@@ -1,32 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { applyEditsToContent } from '../apply/apply-edits-to-content.js';
 import type { Edit, MovePlan } from '../planner/types.js';
-import { buildLineOffsets, lineIndexAt, sliceLine } from './line-offsets.js';
-import type { DiffHunk, DiffLine, FileDiff, PlanDiff } from './types.js';
-
-const CONTEXT = 3;
-
-interface LineInterval {
-  readonly start: number;
-  readonly count: number;
-}
-
-interface ChangedSegment {
-  oldStart: number;
-  oldCount: number;
-  newStart: number;
-  newCount: number;
-}
-
-function intervalFor(offsets: readonly number[], rangeStart: number, rangeEnd: number): LineInterval {
-  if (rangeStart === rangeEnd) {
-    const lineIdx = lineIndexAt(offsets, rangeStart);
-    return offsets[lineIdx] === rangeStart ? { start: lineIdx, count: 0 } : { start: lineIdx, count: 1 };
-  }
-  const startLine = lineIndexAt(offsets, rangeStart);
-  const endLine = lineIndexAt(offsets, rangeEnd - 1);
-  return { start: startLine, count: endLine - startLine + 1 };
-}
+import { computeChangedIntervals } from './compute-changed-intervals.js';
+import { buildLineOffsets } from './line-offsets.js';
+import { mergeChangedSegments } from './merge-changed-segments.js';
+import { renderDiffHunk } from './render-diff-hunk.js';
+import type { FileDiff, PlanDiff } from './types.js';
 
 function buildFileDiff(
   oldPath: string,
@@ -42,81 +21,9 @@ function buildFileDiff(
   const beforeOffsets = buildLineOffsets(beforeText);
   const afterOffsets = buildLineOffsets(afterText);
 
-  const sorted = [...edits].sort((a, b) => a.span.start - b.span.start);
-  let shift = 0;
-  const changes: { old: LineInterval; new: LineInterval }[] = [];
-  for (const edit of sorted) {
-    const oldInterval = intervalFor(beforeOffsets, edit.span.start, edit.span.end);
-    const afterStart = edit.span.start + shift;
-    const afterEnd = afterStart + edit.newText.length;
-    const newInterval = intervalFor(afterOffsets, afterStart, afterEnd);
-    changes.push({ old: oldInterval, new: newInterval });
-    shift += edit.newText.length - (edit.span.end - edit.span.start);
-  }
-
-  const segments: ChangedSegment[] = [];
-  for (const change of changes) {
-    const last = segments[segments.length - 1];
-    if (last && change.old.start <= last.oldStart + last.oldCount) {
-      const oldEnd = Math.max(last.oldStart + last.oldCount, change.old.start + change.old.count);
-      const newEnd = Math.max(last.newStart + last.newCount, change.new.start + change.new.count);
-      last.oldCount = oldEnd - last.oldStart;
-      last.newCount = newEnd - last.newStart;
-    } else {
-      segments.push({
-        oldStart: change.old.start,
-        oldCount: change.old.count,
-        newStart: change.new.start,
-        newCount: change.new.count,
-      });
-    }
-  }
-
-  const totalOldLines = beforeOffsets.length;
-  const firstSegment = segments[0]!;
-  const lastSegment = segments[segments.length - 1]!;
-
-  const oldRangeStart = Math.max(0, firstSegment.oldStart - CONTEXT);
-  const oldRangeEnd = Math.min(totalOldLines, lastSegment.oldStart + lastSegment.oldCount + CONTEXT);
-  const newRangeStart = firstSegment.newStart - (firstSegment.oldStart - oldRangeStart);
-
-  const lines: DiffLine[] = [];
-  let cursorOld = oldRangeStart;
-  let cursorNew = newRangeStart;
-
-  for (const segment of segments) {
-    const gapCount = segment.oldStart - cursorOld;
-    for (let i = 0; i < gapCount; i++) {
-      lines.push({ kind: 'context', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
-    }
-    cursorOld = segment.oldStart;
-    cursorNew += gapCount;
-
-    for (let i = 0; i < segment.oldCount; i++) {
-      lines.push({ kind: 'removed', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
-    }
-    cursorOld += segment.oldCount;
-
-    for (let i = 0; i < segment.newCount; i++) {
-      lines.push({ kind: 'added', text: sliceLine(afterText, afterOffsets, segment.newStart + i) });
-    }
-    cursorNew = segment.newStart + segment.newCount;
-  }
-
-  const trailingCount = oldRangeEnd - cursorOld;
-  for (let i = 0; i < trailingCount; i++) {
-    lines.push({ kind: 'context', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
-  }
-  cursorOld += trailingCount;
-  cursorNew += trailingCount;
-
-  const hunk: DiffHunk = {
-    oldStart: oldRangeStart + 1,
-    oldLines: oldRangeEnd - oldRangeStart,
-    newStart: newRangeStart + 1,
-    newLines: cursorNew - newRangeStart,
-    lines,
-  };
+  const changes = computeChangedIntervals(edits, beforeOffsets, afterOffsets);
+  const segments = mergeChangedSegments(changes);
+  const hunk = renderDiffHunk(beforeText, beforeOffsets, afterText, afterOffsets, segments);
 
   return { oldPath, newPath, hunks: [hunk] };
 }

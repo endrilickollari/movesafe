@@ -1,7 +1,8 @@
 import type { GraphEdgeTarget, ImportGraph } from '../graph/types.js';
+import { collectEditsFromEdges } from './collect-edits-from-edges.js';
 import type { ComputePackageSpecifierResult } from './compute-package-specifier.js';
 import { isPathUnder } from './directory-path-utils.js';
-import type { CollectedEdits, Edit, MovePlanDiagnostic } from './types.js';
+import type { CollectedEdits } from './types.js';
 
 /**
  * A target still counts as "in the source package" for `inProject`/
@@ -37,9 +38,6 @@ export function collectCrossPackageOutboundEdits(
   sourcePackageName: string,
   result: ComputePackageSpecifierResult,
 ): CollectedEdits {
-  const edits: Edit[] = [];
-  const diagnostics: MovePlanDiagnostic[] = [];
-
   const outboundEdges = sourcePackageGraph.edges.filter(
     (edge) =>
       edge.fromFilePath === fromFilePath &&
@@ -47,29 +45,23 @@ export function collectCrossPackageOutboundEdits(
       targetStillInSourcePackage(edge.target, sourcePackageDir),
   );
 
-  if (outboundEdges.length === 0) {
-    return { edits, diagnostics };
-  }
-
-  for (const edge of outboundEdges) {
+  return collectEditsFromEdges(outboundEdges, (edge) => {
     if (!('specifier' in result)) {
-      diagnostics.push({
-        severity: 'warning',
-        code: 'unrecomputable-specifier',
-        message: `Could not determine a safe package-level specifier for ${sourcePackageName} — '${edge.specifier}' in the moved file left unedited.`,
-        path: fromFilePath,
-      });
-      continue;
+      return {
+        kind: 'unrecomputable',
+        diagnostic: {
+          severity: 'warning',
+          code: 'unrecomputable-specifier',
+          message: `Could not determine a safe package-level specifier for ${sourcePackageName} — '${edge.specifier}' in the moved file left unedited.`,
+          path: fromFilePath,
+        },
+      };
     }
 
-    edits.push({
-      file: fromFilePath,
-      span: edge.specifierOffset,
-      oldText: edge.specifier,
-      newText: result.specifier,
+    return {
+      kind: 'edit',
+      newSpecifier: result.specifier,
       reason: `Outbound import specifier recomputed as a package import back to ${sourcePackageName} after cross-package move.`,
-    });
-  }
-
-  return { edits, diagnostics };
+    };
+  });
 }

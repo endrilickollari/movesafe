@@ -1,8 +1,9 @@
 import type { ImportGraph } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
+import { collectEditsFromEdges } from './collect-edits-from-edges.js';
 import { computeAliasSpecifier, matchPathsAlias } from './match-paths-alias.js';
 import { computeRelativeSpecifier } from './compute-relative-specifier.js';
-import type { CollectedEdits, Edit, MovePlanDiagnostic } from './types.js';
+import type { CollectedEdits } from './types.js';
 
 function computeNewSpecifier(
   specifier: string,
@@ -27,14 +28,11 @@ export function collectInboundEdits(
   graph: ImportGraph,
   tsconfig: LoadedTsconfig,
 ): CollectedEdits {
-  const edits: Edit[] = [];
-  const diagnostics: MovePlanDiagnostic[] = [];
-
   const inboundEdges = graph.edges.filter(
     (edge) => edge.target.kind === 'inProject' && edge.target.filePath === fromFilePath,
   );
 
-  for (const edge of inboundEdges) {
+  return collectEditsFromEdges(inboundEdges, (edge) => {
     const newSpecifier = computeNewSpecifier(
       edge.specifier,
       fromFilePath,
@@ -44,23 +42,17 @@ export function collectInboundEdits(
     );
 
     if (newSpecifier === undefined) {
-      diagnostics.push({
-        severity: 'warning',
-        code: 'unrecomputable-inbound-specifier',
-        message: `Could not determine how to preserve the import style of '${edge.specifier}' in ${edge.fromFilePath} — left unedited.`,
-        path: edge.fromFilePath,
-      });
-      continue;
+      return {
+        kind: 'unrecomputable',
+        diagnostic: {
+          severity: 'warning',
+          code: 'unrecomputable-inbound-specifier',
+          message: `Could not determine how to preserve the import style of '${edge.specifier}' in ${edge.fromFilePath} — left unedited.`,
+          path: edge.fromFilePath,
+        },
+      };
     }
 
-    edits.push({
-      file: edge.fromFilePath,
-      span: edge.specifierOffset,
-      oldText: edge.specifier,
-      newText: newSpecifier,
-      reason: 'Inbound import specifier recomputed after move.',
-    });
-  }
-
-  return { edits, diagnostics };
+    return { kind: 'edit', newSpecifier, reason: 'Inbound import specifier recomputed after move.' };
+  });
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { detectWorkspacePackages, loadTsconfig, resolveSpecifier } from '../src/index.js';
+import { detectWorkspacePackages, loadTsconfig } from '../src/index.js';
+import { resolveSpecifier } from '../src/module-resolution/index.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/workspace/${segments.join('/')}`, import.meta.url).pathname;

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import type { Edit, MovePlan } from '../planner/types.js';
+import type { DirectoryMovePlan, Edit, MovePlan } from '../planner/types.js';
 import type { ApplyDiagnostic } from './types.js';
 
 /**
@@ -30,6 +30,34 @@ export function checkStaleness(plan: MovePlan): ApplyDiagnostic[] {
       message: `${plan.toFilePath} now exists — it may have been created since planning.`,
       path: plan.toFilePath,
     });
+  }
+
+  diagnostics.push(...checkEditsAgainstDisk(plan.edits));
+
+  return diagnostics;
+}
+
+/** Directory analog of `checkStaleness`, re-checking every planned move's source/destination in addition to the shared edit-staleness check. */
+export function checkDirectoryStaleness(plan: DirectoryMovePlan): ApplyDiagnostic[] {
+  const diagnostics: ApplyDiagnostic[] = [];
+
+  for (const move of plan.moves) {
+    if (!existsSync(move.fromFilePath)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'source-file-missing',
+        message: `${move.fromFilePath} no longer exists — it may have been moved or deleted since planning.`,
+        path: move.fromFilePath,
+      });
+    }
+    if (existsSync(move.toFilePath)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'destination-already-exists',
+        message: `${move.toFilePath} now exists — it may have been created since planning.`,
+        path: move.toFilePath,
+      });
+    }
   }
 
   diagnostics.push(...checkEditsAgainstDisk(plan.edits));
