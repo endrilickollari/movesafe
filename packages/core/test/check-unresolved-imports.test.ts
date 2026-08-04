@@ -20,4 +20,18 @@ describe('checkUnresolvedImports', () => {
     ]);
     expect(findings[0]?.message).toContain('does-not-exist');
   });
+
+  it('flags a `declare module` augmentation whose target no longer exists', () => {
+    const graph = buildImportGraph(fixturePath('stale-module-augmentation', 'tsconfig.json'));
+    const findings = checkUnresolvedImports(graph);
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'unresolved-import',
+        path: fixturePath('stale-module-augmentation', 'src', 'augmenter.ts'),
+      }),
+    ]);
+    expect(findings[0]?.message).toContain('moved-away');
+  });
 });

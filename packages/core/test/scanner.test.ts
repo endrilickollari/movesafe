@@ -161,7 +161,7 @@ describe('scanFile', () => {
     );
   });
 
-  it('finds imports nested inside an ambient module block', () => {
+  it('finds imports nested inside an ambient module block, plus the augmentation itself', () => {
     const src = `
       declare module 'virtual-mod' {
         import x from './q';
@@ -169,9 +169,31 @@ describe('scanFile', () => {
       }
     `;
     const { specifiers } = scanFile('virtual.ts', src);
-    expect(specifiers).toHaveLength(1);
-    expect(specifiers[0]).toMatchObject({ formKind: 'import', moduleText: './q' });
-    expectRoundTrip(src, specifiers[0]!);
+    expect(specifiers).toHaveLength(2);
+
+    const augmentation = specifiers.find((s) => s.formKind === 'moduleAugmentation');
+    expect(augmentation).toMatchObject({ formKind: 'moduleAugmentation', moduleText: 'virtual-mod' });
+    expectRoundTrip(src, augmentation!);
+
+    const nested = specifiers.find((s) => s.formKind === 'import');
+    expect(nested).toMatchObject({ formKind: 'import', moduleText: './q' });
+    expectRoundTrip(src, nested!);
+  });
+
+  it('does not treat a bare ambient module declaration (no body) as an augmentation', () => {
+    const src = `declare module 'untyped-pkg';`;
+    const { specifiers } = scanFile('virtual.ts', src);
+    expect(specifiers).toHaveLength(0);
+  });
+
+  it('does not treat a namespace/module with an identifier name as an augmentation', () => {
+    const src = `
+      declare module Foo {
+        export function f(): void;
+      }
+    `;
+    const { specifiers } = scanFile('virtual.ts', src);
+    expect(specifiers).toHaveLength(0);
   });
 
   it('kitchen sink: every form in one file round-trips', () => {

@@ -72,6 +72,22 @@ describe('planMove — inbound rewrites', () => {
     );
   });
 
+  it('recomputes the specifier of a `declare module` augmentation targeting the moved file', () => {
+    const graph = buildImportGraph(fixturePath('module-augmentation-project', 'tsconfig.json'));
+    const tsconfig = loadTsconfig(fixturePath('module-augmentation-project', 'tsconfig.json'));
+    const from = fixturePath('module-augmentation-project', 'src', 'target.ts');
+    const to = fixturePath('module-augmentation-project', 'src', 'nested', 'target.ts');
+
+    const plan = planMove(from, to, graph, tsconfig);
+    expect(plan.edits).toContainEqual(
+      expect.objectContaining({
+        file: fixturePath('module-augmentation-project', 'src', 'augmenter.ts'),
+        oldText: './target.js',
+        newText: './nested/target.js',
+      }),
+    );
+  });
+
   it('refuses to rewrite an alias specifier when the move escapes the aliased root', () => {
     const graph = buildImportGraph(fixturePath('alias-project', 'tsconfig.json'));
     const tsconfig = loadTsconfig(fixturePath('alias-project', 'tsconfig.json'));

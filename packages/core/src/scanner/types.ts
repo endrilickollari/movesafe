@@ -7,7 +7,8 @@ export type ImportFormKind =
   | 'exportStarAs' // `export * as ns from 'x'`
   | 'requireCall' // `require('x')`
   | 'dynamicImport' // `import('x')`
-  | 'importEqualsRequire'; // `import foo = require('x')`
+  | 'importEqualsRequire' // `import foo = require('x')`
+  | 'moduleAugmentation'; // `declare module 'x' { ... }`
 
 export interface ImportSpecifierRecord {
   readonly formKind: ImportFormKind;

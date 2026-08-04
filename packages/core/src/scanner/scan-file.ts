@@ -4,6 +4,7 @@ import { parseSourceFile, readSourceText } from '../ts-utils/source-file.js';
 import { extractExportDeclaration } from './extract-exports.js';
 import { extractDynamicImport, extractImportEquals, extractRequireCall } from './extract-calls.js';
 import { extractImportDeclaration } from './extract-imports.js';
+import { extractModuleAugmentation } from './extract-module-augmentation.js';
 import type { FileScanResult, ImportSpecifierRecord, ScanWarning } from './types.js';
 
 export function scanFile(filePath: string, sourceText?: string): FileScanResult {
@@ -24,6 +25,8 @@ export function scanFile(filePath: string, sourceText?: string): FileScanResult 
       extractRequireCall(node, sourceFile, specifiers, warnings);
     } else if (isDynamicImportCall(node)) {
       extractDynamicImport(node, sourceFile, specifiers, warnings);
+    } else if (ts.isModuleDeclaration(node) && ts.isStringLiteral(node.name) && node.body) {
+      extractModuleAugmentation(node, sourceFile, specifiers);
     }
   });
 
