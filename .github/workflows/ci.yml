@@ -28,3 +28,14 @@ jobs:
             turbo-${{ runner.os }}-
 
       - run: pnpm turbo run lint test
+
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./packages/action
+        with:
+          # movesafe itself has no root tsconfig.json (each package has its
+          # own) — point at a package that does.
+          path: packages/core

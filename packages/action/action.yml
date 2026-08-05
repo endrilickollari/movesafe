@@ -1,0 +1,34 @@
+name: 'movesafe check'
+description: 'Fails the build when movesafe finds broken imports, orphaned barrel exports, or case-sensitivity mismatches.'
+inputs:
+  path:
+    description: 'Directory to check, relative to the consuming repo checkout.'
+    required: false
+    default: '.'
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+        cache-dependency-path: ${{ github.action_path }}/../../pnpm-lock.yaml
+
+    - shell: bash
+      working-directory: ${{ github.action_path }}/../..
+      run: pnpm install --frozen-lockfile
+
+    - shell: bash
+      working-directory: ${{ github.action_path }}/../..
+      run: pnpm turbo run build --filter=movesafe
+
+    - shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        set +e
+        node "${{ github.action_path }}/../cli/dist/index.js" check "${{ inputs.path }}" --md > "$RUNNER_TEMP/movesafe-check.md"
+        exit_code=$?
+        cat "$RUNNER_TEMP/movesafe-check.md" >> "$GITHUB_STEP_SUMMARY"
+        exit $exit_code
