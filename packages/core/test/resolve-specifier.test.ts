@@ -84,6 +84,39 @@ describe('resolveSpecifier', () => {
     expect(result).toMatchObject({ kind: 'external', packageName: 'fs' });
   });
 
+  it('classifies a node:-prefixed subpath built-in as external', () => {
+    const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
+    const { result, warnings } = resolveSpecifier(
+      'node:fs/promises',
+      fixturePath('node-builtin', 'src', 'index.ts'),
+      tsconfig,
+    );
+    expect(warnings).toEqual([]);
+    expect(result).toMatchObject({ kind: 'external', packageName: 'fs/promises' });
+  });
+
+  it('classifies a bare subpath built-in the same way', () => {
+    const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
+    const { result, warnings } = resolveSpecifier(
+      'fs/promises',
+      fixturePath('node-builtin', 'src', 'index.ts'),
+      tsconfig,
+    );
+    expect(warnings).toEqual([]);
+    expect(result).toMatchObject({ kind: 'external', packageName: 'fs/promises' });
+  });
+
+  it('classifies a node:-only built-in with no legacy unprefixed form as external', () => {
+    const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
+    const { result, warnings } = resolveSpecifier(
+      'node:test',
+      fixturePath('node-builtin', 'src', 'index.ts'),
+      tsconfig,
+    );
+    expect(warnings).toEqual([]);
+    expect(result).toMatchObject({ kind: 'external', packageName: 'test' });
+  });
+
   it('classifies a workspace-shaped package as external when no workspacePackages map is given', () => {
     const tsconfig = loadTsconfig(fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'));
     const { result, warnings } = resolveSpecifier(
