@@ -8,27 +8,31 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Resolve movesafe checkout root
+      shell: bash
+      run: echo "MOVESAFE_ROOT=$(cd "${{ github.action_path }}/../.." && pwd)" >> "$GITHUB_ENV"
+
     - uses: pnpm/action-setup@v4
 
     - uses: actions/setup-node@v4
       with:
         node-version: 22
         cache: pnpm
-        cache-dependency-path: ${{ github.action_path }}/../../pnpm-lock.yaml
+        cache-dependency-path: ${{ env.MOVESAFE_ROOT }}/pnpm-lock.yaml
 
     - shell: bash
-      working-directory: ${{ github.action_path }}/../..
+      working-directory: ${{ env.MOVESAFE_ROOT }}
       run: pnpm install --frozen-lockfile
 
     - shell: bash
-      working-directory: ${{ github.action_path }}/../..
+      working-directory: ${{ env.MOVESAFE_ROOT }}
       run: pnpm turbo run build --filter=movesafe
 
     - shell: bash
       working-directory: ${{ github.workspace }}
       run: |
         set +e
-        node "${{ github.action_path }}/../cli/dist/index.js" check "${{ inputs.path }}" --md > "$RUNNER_TEMP/movesafe-check.md"
+        node "$MOVESAFE_ROOT/packages/cli/dist/index.js" check "${{ inputs.path }}" --md > "$RUNNER_TEMP/movesafe-check.md"
         exit_code=$?
         cat "$RUNNER_TEMP/movesafe-check.md" >> "$GITHUB_STEP_SUMMARY"
         exit $exit_code
