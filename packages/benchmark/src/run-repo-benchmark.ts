@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import type { CheckFinding, ImportGraph, LoadedTsconfig } from '@movesafe/core/advanced';
 import {
-  applyDirectoryMove,
   applyMove,
   buildImportGraph,
   detectWorkspacePackages,
@@ -98,8 +97,8 @@ function resolvePrimaryProject(
   return undefined;
 }
 
-function applySingleFileOrCrossPackage(
-  kind: 'singleFile' | 'crossPackage',
+function applyPlannedMove(
+  kind: MoveKind,
   from: string,
   to: string,
   ctx: {
@@ -111,44 +110,17 @@ function applySingleFileOrCrossPackage(
   const plan =
     kind === 'crossPackage'
       ? planCrossPackageMove(from, to, ctx.workspacePackages)
-      : planProjectMove(from, to, ctx.graph, ctx.tsconfig);
+      : kind === 'directory'
+        ? planDirectoryMove(from, to, ctx.graph, ctx.tsconfig)
+        : planProjectMove(from, to, ctx.graph, ctx.tsconfig);
 
-  if (plan.diagnostics.some((d) => d.severity === 'error')) {
+  if (plan.status === 'blocked') {
     return { kind, from, to, applied: false, refused: true, diagnostics: plan.diagnostics };
   }
 
   const result = applyMove(plan);
   return {
     kind,
-    from,
-    to,
-    applied: result.applied,
-    refused: false,
-    diagnostics: [...plan.diagnostics, ...result.diagnostics],
-  };
-}
-
-function applyDirectory(
-  from: string,
-  to: string,
-  ctx: { readonly graph: ImportGraph; readonly tsconfig: LoadedTsconfig },
-): MoveOutcome {
-  const plan = planDirectoryMove(from, to, ctx.graph, ctx.tsconfig);
-
-  if (plan.diagnostics.some((d) => d.severity === 'error')) {
-    return {
-      kind: 'directory',
-      from,
-      to,
-      applied: false,
-      refused: true,
-      diagnostics: plan.diagnostics,
-    };
-  }
-
-  const result = applyDirectoryMove(plan);
-  return {
-    kind: 'directory',
     from,
     to,
     applied: result.applied,
@@ -213,39 +185,33 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
 
     if (selected.singleFile) {
       moves.push(
-        applySingleFileOrCrossPackage(
-          'singleFile',
-          selected.singleFile.from,
-          selected.singleFile.to,
-          {
-            graph,
-            tsconfig,
-            workspacePackages,
-          },
-        ),
+        applyPlannedMove('singleFile', selected.singleFile.from, selected.singleFile.to, {
+          graph,
+          tsconfig,
+          workspacePackages,
+        }),
       );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.directory) {
       moves.push(
-        applyDirectory(selected.directory.from, selected.directory.to, { graph, tsconfig }),
+        applyPlannedMove('directory', selected.directory.from, selected.directory.to, {
+          graph,
+          tsconfig,
+          workspacePackages,
+        }),
       );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.crossPackage) {
       moves.push(
-        applySingleFileOrCrossPackage(
-          'crossPackage',
-          selected.crossPackage.from,
-          selected.crossPackage.to,
-          {
-            graph,
-            tsconfig,
-            workspacePackages,
-          },
-        ),
+        applyPlannedMove('crossPackage', selected.crossPackage.from, selected.crossPackage.to, {
+          graph,
+          tsconfig,
+          workspacePackages,
+        }),
       );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }

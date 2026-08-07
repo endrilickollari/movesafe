@@ -8,3 +8,4 @@ export * from './apply/index.js';
 export * from './diff/index.js';
 export * from './cross-package/index.js';
 export * from './check/index.js';
+export * from './verify/index.js';

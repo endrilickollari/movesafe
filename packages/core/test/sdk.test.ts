@@ -110,6 +110,56 @@ describe('SDK', () => {
     );
   });
 
+  it('routes a directory move through the directory planner, verified end-to-end', () => {
+    const cwd = fixturePath('planner', 'directory-move-project');
+    const plan = planMove({ from: 'src/feature', to: 'src/relocated/feature', cwd });
+
+    expect(plan.operation).toBe('directory');
+    expect(plan.scope).toBe('project');
+    expect(plan.status).toBe('ready');
+    expect(plan.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
+    expect(plan.moves).toContainEqual({
+      fromFilePath: fixturePath('planner', 'directory-move-project', 'src', 'feature', 'a.ts'),
+      toFilePath: fixturePath(
+        'planner',
+        'directory-move-project',
+        'src',
+        'relocated',
+        'feature',
+        'a.ts',
+      ),
+    });
+    expect(plan.edits).toContainEqual(
+      expect.objectContaining({
+        file: fixturePath('planner', 'directory-move-project', 'src', 'external.ts'),
+      }),
+    );
+  });
+
+  it('blocks cross-package directory moves instead of treating them as project-local', () => {
+    const cwd = fixturePath('sdk', 'workspace');
+    const plan = planMove({
+      from: 'packages/a/src',
+      to: 'packages/b/src/moved-directory',
+      cwd,
+    });
+
+    expect(plan.status).toBe('blocked');
+    expect(plan.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'cross-package-directory-unsupported' }),
+    );
+  });
+
+  it('blocks destinations outside the discovered TypeScript project', () => {
+    const cwd = fixturePath('planner', 'basic-project');
+    const plan = planMove({ from: 'src/utils.ts', to: '../outside.ts', cwd });
+
+    expect(plan.status).toBe('blocked');
+    expect(plan.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'destination-outside-project' }),
+    );
+  });
+
   it('routes a cross-package move through the workspace planner', () => {
     const cwd = fixturePath('sdk', 'workspace');
     const plan = planMove({
@@ -119,9 +169,12 @@ describe('SDK', () => {
     });
 
     expect(plan.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
-    expect(plan.fromFilePath).toBe(
-      fixturePath('sdk', 'workspace', 'packages', 'a', 'src', 'index.ts'),
-    );
+    expect(plan.moves).toEqual([
+      {
+        fromFilePath: fixturePath('sdk', 'workspace', 'packages', 'a', 'src', 'index.ts'),
+        toFilePath: fixturePath('sdk', 'workspace', 'packages', 'b', 'src', 'moved.ts'),
+      },
+    ]);
     expect(plan.edits).toContainEqual(
       expect.objectContaining({
         file: fixturePath('sdk', 'workspace', 'packages', 'b', 'src', 'index.ts'),

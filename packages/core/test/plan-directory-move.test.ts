@@ -67,22 +67,26 @@ describe('planDirectoryMove', () => {
     );
   });
 
-  it('warns instead of guessing when an alias with a non-wildcard target becomes unrecomputable', () => {
+  it('blocks instead of guessing when an alias with a non-wildcard target becomes unrecomputable', () => {
+    const project = new URL('./fixtures/planner/directory-unrecomputable-project/', import.meta.url).pathname;
+    const unsafeGraph = buildImportGraph(`${project}tsconfig.json`);
+    const unsafeTsconfig = loadTsconfig(`${project}tsconfig.json`);
     const plan = planDirectoryMove(
-      fixturePath('src', 'feature'),
-      fixturePath('src', 'relocated', 'feature'),
-      graph,
-      tsconfig,
+      `${project}src/feature`,
+      `${project}src/relocated/feature`,
+      unsafeGraph,
+      unsafeTsconfig,
     );
 
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({
-        severity: 'warning',
+        severity: 'error',
         code: 'unrecomputable-specifier',
-        path: fixturePath('src', 'external-fixed.ts'),
+        path: `${project}src/consumer.ts`,
       }),
     );
-    expect(plan.edits.some((e) => e.file === fixturePath('src', 'external-fixed.ts'))).toBe(false);
+    expect(plan.status).toBe('blocked');
+    expect(plan.edits.some((e) => e.file === `${project}src/consumer.ts`)).toBe(false);
   });
 
   it('produces no edit for two co-moving files that reference each other by a relative specifier', () => {

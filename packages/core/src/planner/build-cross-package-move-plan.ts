@@ -3,6 +3,10 @@ import { detectDependencyCycle } from '../workspace/detect-dependency-cycle.js';
 import { collectCrossPackageInboundEdits } from './collect-cross-package-inbound-edits.js';
 import { collectCrossPackageOutboundEdits } from './collect-cross-package-outbound-edits.js';
 import type { ComputePackageSpecifierResult } from './compute-package-specifier.js';
+import { computePackageSpecifier } from './compute-package-specifier.js';
+import { finalizeMovePlan } from './finalize-move-plan.js';
+import { isPathUnder } from './directory-path-utils.js';
+import { resolvePackageMembership } from './resolve-package-membership.js';
 import type { Edit, MovePlan, MovePlanDiagnostic } from './types.js';
 import { validateCrossPackageMove } from './validate-cross-package-move.js';
 
@@ -10,8 +14,7 @@ export interface CrossPackageMoveSide {
   readonly packageName: string;
   readonly packageDir: string;
   readonly graph: ImportGraph;
-  /** The specifier another package would use to reference this one, given this package's already-parsed `exports` field. */
-  readonly specifierResult: ComputePackageSpecifierResult;
+  readonly exportsField: unknown;
 }
 
 function dependentsOf(depGraph: ReadonlyMap<string, Set<string>>, packageName: string): string[] {
@@ -38,7 +41,10 @@ export function buildCrossPackageMovePlan(
   source: CrossPackageMoveSide,
   dest: CrossPackageMoveSide,
   workspaceDependencyGraph: ReadonlyMap<string, Set<string>>,
-  options: { readonly workspaceWide?: boolean } = {},
+  options: {
+    readonly workspaceWide?: boolean;
+    readonly workspacePackages?: ReadonlyMap<string, string>;
+  } = {},
 ): MovePlan {
   const diagnostics: MovePlanDiagnostic[] = validateCrossPackageMove(
     fromFilePath,
@@ -50,19 +56,30 @@ export function buildCrossPackageMovePlan(
   );
 
   if (diagnostics.some((d) => d.severity === 'error')) {
-    return { fromFilePath, toFilePath, edits: [], diagnostics };
+    return finalizeMovePlan({
+      operation: 'file',
+      scope: 'workspace',
+      moves: [{ fromFilePath, toFilePath }],
+      edits: [],
+      diagnostics,
+    });
   }
 
   const edits: Edit[] = [];
 
+  const destSpecifierResult: ComputePackageSpecifierResult = computePackageSpecifier(
+    dest.packageName,
+    dest.packageDir,
+    dest.exportsField,
+    toFilePath,
+  );
   const inbound = collectCrossPackageInboundEdits(
     fromFilePath,
     toFilePath,
     source.graph,
     dest.packageName,
     dest.packageDir,
-    dest.specifierResult,
-    options.workspaceWide === true,
+    destSpecifierResult,
   );
   edits.push(...inbound.edits);
   diagnostics.push(...inbound.diagnostics);
@@ -72,10 +89,45 @@ export function buildCrossPackageMovePlan(
     source.graph,
     source.packageDir,
     source.packageName,
-    source.specifierResult,
+    source.exportsField,
   );
   edits.push(...outbound.edits);
   diagnostics.push(...outbound.diagnostics);
+
+  const packageNames = new Set([source.packageName, dest.packageName, ...(options.workspacePackages?.keys() ?? [])]);
+  const missingDependencies = new Set<string>();
+  for (const edit of edits) {
+    const importedPackage = [...packageNames]
+      .sort((a, b) => b.length - a.length)
+      .find((name) => edit.newText === name || edit.newText.startsWith(`${name}/`));
+    if (!importedPackage) continue;
+
+    const importerPath = edit.file === fromFilePath ? toFilePath : edit.file;
+    const importerPackage = edit.file === fromFilePath
+      ? dest.packageName
+      : isPathUnder(edit.file, source.packageDir)
+        ? source.packageName
+        : isPathUnder(edit.file, dest.packageDir)
+          ? dest.packageName
+          : options.workspacePackages
+            ? resolvePackageMembership(edit.file, options.workspacePackages)?.packageName
+            : undefined;
+    if (
+      importerPackage &&
+      importerPackage !== importedPackage &&
+      !workspaceDependencyGraph.get(importerPackage)?.has(importedPackage)
+    ) {
+      const dependency = `${importerPackage}\0${importedPackage}`;
+      if (missingDependencies.has(dependency)) continue;
+      missingDependencies.add(dependency);
+      diagnostics.push({
+        severity: 'error',
+        code: 'missing-workspace-dependency',
+        message: `${importerPackage} does not declare a dependency on ${importedPackage}, required by the planned '${edit.newText}' import.`,
+        path: importerPath,
+      });
+    }
+  }
 
   const cyclePath = detectDependencyCycle(workspaceDependencyGraph, source.packageName, dest.packageName);
   if (cyclePath) {
@@ -97,5 +149,11 @@ export function buildCrossPackageMovePlan(
     });
   }
 
-  return { fromFilePath, toFilePath, edits, diagnostics };
+  return finalizeMovePlan({
+    operation: 'file',
+    scope: 'workspace',
+    moves: [{ fromFilePath, toFilePath }],
+    edits,
+    diagnostics,
+  });
 }

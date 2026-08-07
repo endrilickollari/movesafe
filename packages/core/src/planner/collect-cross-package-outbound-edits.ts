@@ -1,6 +1,7 @@
 import type { GraphEdgeTarget, ImportGraph } from '../graph/types.js';
 import { collectEditsFromEdges } from './collect-edits-from-edges.js';
 import type { ComputePackageSpecifierResult } from './compute-package-specifier.js';
+import { computePackageSpecifier } from './compute-package-specifier.js';
 import { isPathUnder } from './directory-path-utils.js';
 import type { CollectedEdits } from './types.js';
 
@@ -36,7 +37,7 @@ export function collectCrossPackageOutboundEdits(
   sourcePackageGraph: ImportGraph,
   sourcePackageDir: string,
   sourcePackageName: string,
-  result: ComputePackageSpecifierResult,
+  sourceExportsField: unknown,
 ): CollectedEdits {
   const outboundEdges = sourcePackageGraph.edges.filter(
     (edge) =>
@@ -46,11 +47,20 @@ export function collectCrossPackageOutboundEdits(
   );
 
   return collectEditsFromEdges(outboundEdges, (edge) => {
+    const targetFilePath = edge.target.kind === 'outOfProject'
+      ? edge.target.resolvedFileName
+      : edge.target.kind === 'inProject' || edge.target.kind === 'inProjectNonSourceFile'
+        ? edge.target.filePath
+        : undefined;
+    const result: ComputePackageSpecifierResult = targetFilePath
+      ? computePackageSpecifier(sourcePackageName, sourcePackageDir, sourceExportsField, targetFilePath)
+      : { unrecomputable: true };
+
     if (!('specifier' in result)) {
       return {
         kind: 'unrecomputable',
         diagnostic: {
-          severity: 'warning',
+          severity: 'error',
           code: 'unrecomputable-specifier',
           message: `Could not determine a safe package-level specifier for ${sourcePackageName} — '${edge.specifier}' in the moved file left unedited.`,
           path: fromFilePath,

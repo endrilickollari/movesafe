@@ -2,7 +2,8 @@ import type { ImportGraph } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
 import { collectDirectoryEdits } from './collect-directory-edits.js';
 import { isPathUnder, substituteDirPrefix } from './directory-path-utils.js';
-import type { DirectoryMovePlan, Edit, FileMove } from './types.js';
+import { finalizeMovePlan } from './finalize-move-plan.js';
+import type { Edit, FileMove, MovePlan } from './types.js';
 import { validateDirectoryMove } from './validate-directory-move.js';
 
 export function planDirectoryMove(
@@ -10,7 +11,7 @@ export function planDirectoryMove(
   toDirPath: string,
   graph: ImportGraph,
   tsconfig: LoadedTsconfig,
-): DirectoryMovePlan {
+): MovePlan {
   const diagnostics = validateDirectoryMove(fromDirPath, toDirPath, graph);
   const hasError = diagnostics.some((d) => d.severity === 'error');
 
@@ -31,5 +32,12 @@ export function planDirectoryMove(
     diagnostics.push(...collected.diagnostics);
   }
 
-  return { fromDirPath, toDirPath, moves, edits, diagnostics };
+  return finalizeMovePlan({
+    operation: 'directory',
+    scope: 'project',
+    moves,
+    edits,
+    diagnostics,
+    sourceDirectory: fromDirPath,
+  });
 }

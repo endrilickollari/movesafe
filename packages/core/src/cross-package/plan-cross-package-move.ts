@@ -1,6 +1,6 @@
 import { buildImportGraph } from '../graph/build-import-graph.js';
 import { buildCrossPackageMovePlan } from '../planner/build-cross-package-move-plan.js';
-import { computePackageSpecifier } from '../planner/compute-package-specifier.js';
+import { finalizeMovePlan } from '../planner/finalize-move-plan.js';
 import { resolvePackageMembership } from '../planner/resolve-package-membership.js';
 import type { MovePlan, MovePlanDiagnostic } from '../planner/types.js';
 import type { ImportGraph } from '../graph/types.js';
@@ -9,7 +9,13 @@ import { findPackageTsconfig } from './find-package-tsconfig.js';
 import { readPackageExportsField } from './read-package-exports-field.js';
 
 function emptyPlan(fromFilePath: string, toFilePath: string, diagnostic: MovePlanDiagnostic): MovePlan {
-  return { fromFilePath, toFilePath, edits: [], diagnostics: [diagnostic] };
+  return finalizeMovePlan({
+    operation: 'file',
+    scope: 'workspace',
+    moves: [{ fromFilePath, toFilePath }],
+    edits: [],
+    diagnostics: [diagnostic],
+  });
 }
 
 export interface PlanCrossPackageMoveOptions {
@@ -22,6 +28,11 @@ export interface PlanCrossPackageMoveOptions {
  * both packages' tsconfigs/graphs/`package.json` exports, builds the
  * workspace dependency graph, and hands everything to the pure
  * `buildCrossPackageMovePlan` in `planner/` to assemble the final plan.
+ *
+ * Package-manager linking cannot be reproduced by a filesystem overlay, so
+ * package-level rewrites are accepted only when an existing `exports` entry
+ * maps exactly to the referenced source file and the importing package
+ * already declares the dependency. Relative rewrites remain package-local.
  */
 export function planCrossPackageMove(
   fromFilePath: string,
@@ -84,20 +95,14 @@ export function planCrossPackageMove(
     buildImportGraph(sourceTsconfigPath, { workspacePackages: workspacePackagesRecord });
   const destGraph = buildImportGraph(destTsconfigPath, { workspacePackages: workspacePackagesRecord });
 
-  const sourceSpecifierResult = computePackageSpecifier(
-    source.packageName,
-    readPackageExportsField(source.packageDir),
-  );
-  const destSpecifierResult = computePackageSpecifier(dest.packageName, readPackageExportsField(dest.packageDir));
-
   const workspaceDependencyGraph = buildWorkspaceDependencyGraph(workspacePackages);
 
   return buildCrossPackageMovePlan(
     fromFilePath,
     toFilePath,
-    { packageName: source.packageName, packageDir: source.packageDir, graph: sourceGraph, specifierResult: sourceSpecifierResult },
-    { packageName: dest.packageName, packageDir: dest.packageDir, graph: destGraph, specifierResult: destSpecifierResult },
+    { packageName: source.packageName, packageDir: source.packageDir, graph: sourceGraph, exportsField: readPackageExportsField(source.packageDir) },
+    { packageName: dest.packageName, packageDir: dest.packageDir, graph: destGraph, exportsField: readPackageExportsField(dest.packageDir) },
     workspaceDependencyGraph,
-    { workspaceWide: options.workspaceGraph !== undefined },
+    { workspaceWide: options.workspaceGraph !== undefined, workspacePackages },
   );
 }

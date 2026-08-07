@@ -1,6 +1,7 @@
 import type { ImportGraph } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
 import { collectEdits } from './collect-edits.js';
+import { finalizeMovePlan } from './finalize-move-plan.js';
 import { validateMove } from './validate-move.js';
 import type { Edit, MovePlan, MovePlanDiagnostic } from './types.js';
 
@@ -20,5 +21,11 @@ export function planMove(
     diagnostics.push(...collected.diagnostics);
   }
 
-  return { fromFilePath, toFilePath, edits, diagnostics };
+  return finalizeMovePlan({
+    operation: 'file',
+    scope: 'project',
+    moves: [{ fromFilePath, toFilePath }],
+    edits,
+    diagnostics,
+  });
 }

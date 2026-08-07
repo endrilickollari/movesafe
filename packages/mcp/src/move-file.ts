@@ -43,12 +43,12 @@ export function moveFile(options: MoveFileOptions): MoveFileResult {
 
   const plan = planMove({ from, to, cwd: options.cwd });
 
-  const errorDiagnostic = plan.diagnostics.find((diagnostic) => diagnostic.severity === 'error');
-  if (errorDiagnostic) {
+  if (plan.status === 'blocked') {
+    const errorDiagnostic = plan.diagnostics.find((diagnostic) => diagnostic.severity === 'error');
     return {
       ok: false,
       applied: false,
-      error: errorDiagnostic.code === 'tsconfig-not-found' ? errorDiagnostic.message : undefined,
+      error: errorDiagnostic?.code === 'tsconfig-not-found' ? errorDiagnostic.message : undefined,
       edits: plan.edits,
       diagnostics: plan.diagnostics,
     };

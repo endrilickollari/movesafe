@@ -1,14 +1,30 @@
-import { mkdirSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Edit, MovePlan } from '../planner/types.js';
 import { applyEditsToContent } from './apply-edits-to-content.js';
-import { checkStaleness } from './check-staleness.js';
-import type { CompletedSwap } from './file-swap.js';
-import { renameFailure, rollbackSwaps, swapInNewContent, tempSiblingPath } from './file-swap.js';
+import { checkPlanPreconditions } from './check-staleness.js';
+import type { CompletedMove, CompletedSwap } from './file-swap.js';
+import { renameFailure, rollbackMoves, rollbackSwaps, swapInNewContent, tempSiblingPath } from './file-swap.js';
 import type { ApplyDiagnostic, ApplyResult } from './types.js';
 
+function countLeftoverFiles(dirPath: string): number {
+  if (!existsSync(dirPath)) return 0;
+  return readdirSync(dirPath, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile())
+    .length;
+}
+
+/**
+ * The single apply entry point for every `MovePlan`: `moves` has one entry
+ * for a file or cross-package move, many for a directory move. Every
+ * original file is either fully untouched or safely superseded by a
+ * confirmed-written destination at every point mid-batch — never
+ * destructively overwritten before the whole batch is confirmed successful
+ * (write temp next to the destination, rename into place, only then
+ * best-effort unlink the original), with every unlink deferred until the
+ * entire batch has succeeded.
+ */
 export function applyMove(plan: MovePlan): ApplyResult {
-  if (plan.diagnostics.some((d) => d.severity === 'error')) {
+  if (plan.status === 'blocked') {
     return {
       applied: false,
       diagnostics: [
@@ -22,19 +38,22 @@ export function applyMove(plan: MovePlan): ApplyResult {
     };
   }
 
-  const staleness = checkStaleness(plan);
+  const staleness = checkPlanPreconditions(plan);
   if (staleness.length > 0) {
     return { applied: false, diagnostics: staleness };
   }
 
+  const movedFromPaths = new Set(plan.moves.map((m) => m.fromFilePath));
+
   const editsByFile = new Map<string, Edit[]>();
+  const editsByMovedFile = new Map<string, Edit[]>();
   for (const edit of plan.edits) {
-    if (edit.file === plan.fromFilePath) continue;
-    const existing = editsByFile.get(edit.file);
+    const bucket = movedFromPaths.has(edit.file) ? editsByMovedFile : editsByFile;
+    const existing = bucket.get(edit.file);
     if (existing) {
       existing.push(edit);
     } else {
-      editsByFile.set(edit.file, [edit]);
+      bucket.set(edit.file, [edit]);
     }
   }
 
@@ -52,39 +71,76 @@ export function applyMove(plan: MovePlan): ApplyResult {
     }
   }
 
-  const warnings: ApplyDiagnostic[] = [];
-  const ownEdits = plan.edits.filter((edit) => edit.file === plan.fromFilePath);
+  const completedMoves: CompletedMove[] = [];
 
-  try {
-    mkdirSync(dirname(plan.toFilePath), { recursive: true });
+  for (const move of plan.moves) {
+    const ownEdits = editsByMovedFile.get(move.fromFilePath) ?? [];
+    try {
+      mkdirSync(dirname(move.toFilePath), { recursive: true });
 
-    if (ownEdits.length === 0) {
-      renameSync(plan.fromFilePath, plan.toFilePath);
-    } else {
-      const currentContent = readFileSync(plan.fromFilePath, 'utf8');
-      const newContent = applyEditsToContent(currentContent, ownEdits);
-      const tempPath = tempSiblingPath(plan.toFilePath, 'tmp');
-      writeFileSync(tempPath, newContent, 'utf8');
-      renameSync(tempPath, plan.toFilePath);
-      try {
-        unlinkSync(plan.fromFilePath);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        warnings.push({
-          severity: 'warning',
-          code: 'rename-failed',
-          message: `Moved content to ${plan.toFilePath} but could not remove the old file at ${plan.fromFilePath}: ${message}`,
-          path: plan.fromFilePath,
-        });
+      if (ownEdits.length === 0) {
+        renameSync(move.fromFilePath, move.toFilePath);
+      } else {
+        const currentContent = readFileSync(move.fromFilePath, 'utf8');
+        const newContent = applyEditsToContent(currentContent, ownEdits);
+        const tempPath = tempSiblingPath(move.toFilePath, 'tmp');
+        writeFileSync(tempPath, newContent, 'utf8');
+        renameSync(tempPath, move.toFilePath);
       }
+
+      completedMoves.push({
+        fromFilePath: move.fromFilePath,
+        toFilePath: move.toFilePath,
+        hadOwnEdits: ownEdits.length > 0,
+      });
+    } catch (err) {
+      rollbackMoves(completedMoves);
+      rollbackSwaps(completedSwaps);
+      return { applied: false, diagnostics: [renameFailure(move.fromFilePath, err)] };
     }
-  } catch (err) {
-    rollbackSwaps(completedSwaps);
-    return { applied: false, diagnostics: [renameFailure(plan.fromFilePath, err)] };
+  }
+
+  const warnings: ApplyDiagnostic[] = [];
+
+  for (const move of completedMoves) {
+    if (!move.hadOwnEdits) continue;
+    try {
+      unlinkSync(move.fromFilePath);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      warnings.push({
+        severity: 'warning',
+        code: 'rename-failed',
+        message: `Moved content to ${move.toFilePath} but could not remove the old file at ${move.fromFilePath}: ${message}`,
+        path: move.fromFilePath,
+      });
+    }
   }
 
   for (const swap of completedSwaps) {
     rmSync(swap.backupPath, { force: true });
+  }
+
+  if (plan.operation === 'directory' && plan.moves.length > 0) {
+    const fromDirPath = plan.preconditions.find((condition) => condition.kind === 'source-directory')!.path;
+    const leftoverCount = countLeftoverFiles(fromDirPath);
+    if (leftoverCount > 0) {
+      warnings.push({
+        severity: 'warning',
+        code: 'non-source-files-left-behind',
+        message: `${leftoverCount} non-source file(s) remain in ${fromDirPath} and were not moved.`,
+        path: fromDirPath,
+      });
+    } else {
+      // Nothing of value is left behind — safe to remove the now-empty source
+      // directory tree. Best-effort: leaving a stray empty directory around
+      // isn't worth failing an otherwise-successful move over.
+      try {
+        rmSync(fromDirPath, { recursive: true, force: true });
+      } catch {
+        // Ignore — an empty leftover directory is harmless.
+      }
+    }
   }
 
   return { applied: true, diagnostics: warnings };

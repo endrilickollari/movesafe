@@ -19,7 +19,6 @@ export function collectCrossPackageInboundEdits(
   destPackageName: string,
   destPackageDir: string,
   result: ComputePackageSpecifierResult,
-  strict: boolean,
 ): CollectedEdits {
   const inboundEdges = sourcePackageGraph.edges.filter(
     (edge) => edge.target.kind === 'inProject' && edge.target.filePath === fromFilePath,
@@ -38,7 +37,7 @@ export function collectCrossPackageInboundEdits(
       return {
         kind: 'unrecomputable',
         diagnostic: {
-          severity: strict ? 'error' : 'warning',
+          severity: 'error',
           code: 'unrecomputable-specifier',
           message: `Could not determine a safe package-level specifier for ${destPackageName} — '${edge.specifier}' in ${edge.fromFilePath} left unedited.`,
           path: edge.fromFilePath,

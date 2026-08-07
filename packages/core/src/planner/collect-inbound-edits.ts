@@ -45,7 +45,7 @@ export function collectInboundEdits(
       return {
         kind: 'unrecomputable',
         diagnostic: {
-          severity: 'warning',
+          severity: 'error',
           code: 'unrecomputable-inbound-specifier',
           message: `Could not determine how to preserve the import style of '${edge.specifier}' in ${edge.fromFilePath} — left unedited.`,
           path: edge.fromFilePath,

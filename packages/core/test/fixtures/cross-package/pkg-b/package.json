@@ -1,6 +1,9 @@
 {
   "name": "@fixture/pkg-b",
   "version": "0.0.0",
+  "exports": {
+    "./mover": "./src/mover.ts"
+  },
   "dependencies": {
     "@fixture/pkg-c": "workspace:*"
   }

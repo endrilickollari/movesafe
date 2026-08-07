@@ -18,7 +18,7 @@ export function runMv(options: RunMvOptions): RunResult {
   return runCatchingErrors(() => {
     const plan = planMove({ from, to, cwd: options.cwd });
 
-    if (plan.diagnostics.some((d) => d.severity === 'error')) {
+    if (plan.status === 'blocked') {
       return { exitCode: 1, lines: formatDiagnostics(plan.diagnostics, { color: options.color }) };
     }
 

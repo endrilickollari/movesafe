@@ -100,10 +100,11 @@ describe('planMove — inbound rewrites', () => {
     expect(plan.edits).toEqual([]);
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({
-        severity: 'warning',
+        severity: 'error',
         code: 'unrecomputable-inbound-specifier',
         path: fixturePath('alias-project', 'src', 'index.ts'),
       }),
     );
+    expect(plan.status).toBe('blocked');
   });
 });

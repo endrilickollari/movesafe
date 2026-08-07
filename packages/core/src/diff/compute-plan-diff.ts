@@ -30,9 +30,11 @@ function buildFileDiff(
 
 /** Renders a `MovePlan` as structured, per-file diff data — read-only, no writes. A preview analog of `apply/`, reusing `applyEditsToContent` so the preview matches what `applyMove` would actually produce. */
 export function computePlanDiff(plan: MovePlan): PlanDiff {
+  const movedFromPaths = new Set(plan.moves.map((move) => move.fromFilePath));
+
   const editsByFile = new Map<string, Edit[]>();
   for (const edit of plan.edits) {
-    if (edit.file === plan.fromFilePath) continue;
+    if (movedFromPaths.has(edit.file)) continue;
     const existing = editsByFile.get(edit.file);
     if (existing) {
       existing.push(edit);
@@ -43,10 +45,11 @@ export function computePlanDiff(plan: MovePlan): PlanDiff {
 
   const files: FileDiff[] = [];
 
-  if (existsSync(plan.fromFilePath)) {
-    const ownEdits = plan.edits.filter((edit) => edit.file === plan.fromFilePath);
-    const beforeText = readFileSync(plan.fromFilePath, 'utf8');
-    files.push(buildFileDiff(plan.fromFilePath, plan.toFilePath, beforeText, ownEdits));
+  for (const move of plan.moves) {
+    if (!existsSync(move.fromFilePath)) continue;
+    const ownEdits = plan.edits.filter((edit) => edit.file === move.fromFilePath);
+    const beforeText = readFileSync(move.fromFilePath, 'utf8');
+    files.push(buildFileDiff(move.fromFilePath, move.toFilePath, beforeText, ownEdits));
   }
 
   for (const [file, edits] of editsByFile) {

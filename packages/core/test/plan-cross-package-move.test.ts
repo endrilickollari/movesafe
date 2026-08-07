@@ -15,27 +15,28 @@ function workspacePackages(...names: string[]): Map<string, string> {
 }
 
 describe('planCrossPackageMove', () => {
-  it('rewrites inbound and outbound edges, and warns about the cycle and third-party dependents this move implies', () => {
+  it('blocks package imports that lack declared workspace dependency edges', () => {
     const ws = workspacePackages('@fixture/pkg-a', '@fixture/pkg-b', '@fixture/pkg-c');
     const from = fixturePath('pkg-a', 'src', 'mover.ts');
     const to = fixturePath('pkg-b', 'src', 'mover.ts');
 
     const plan = planCrossPackageMove(from, to, ws);
 
-    expect(plan.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(plan.status).toBe('blocked');
+    expect(plan.diagnostics.filter((d) => d.code === 'missing-workspace-dependency')).toHaveLength(2);
 
     expect(plan.edits).toContainEqual(
       expect.objectContaining({
         file: fixturePath('pkg-a', 'src', 'consumer.ts'),
         oldText: './mover.js',
-        newText: '@fixture/pkg-b',
+        newText: '@fixture/pkg-b/mover',
       }),
     );
     expect(plan.edits).toContainEqual(
       expect.objectContaining({
         file: fixturePath('pkg-a', 'src', 'mover.ts'),
         oldText: './sibling.js',
-        newText: '@fixture/pkg-a',
+        newText: '@fixture/pkg-a/sibling',
       }),
     );
 
@@ -93,7 +94,7 @@ describe('planCrossPackageMove', () => {
     );
   });
 
-  it('warns instead of guessing a subpath when the destination has a multi-entry exports map', () => {
+  it('blocks instead of guessing when no export maps exactly to the destination', () => {
     const ws = workspacePackages('@fixture/pkg-a', '@fixture/pkg-d');
     const from = fixturePath('pkg-a', 'src', 'mover.ts');
     const to = fixturePath('pkg-d', 'src', 'mover.ts');
@@ -102,11 +103,12 @@ describe('planCrossPackageMove', () => {
 
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({
-        severity: 'warning',
+        severity: 'error',
         code: 'unrecomputable-specifier',
         path: fixturePath('pkg-a', 'src', 'consumer.ts'),
       }),
     );
+    expect(plan.status).toBe('blocked');
     expect(plan.edits.some((e) => e.file === fixturePath('pkg-a', 'src', 'consumer.ts'))).toBe(false);
   });
 

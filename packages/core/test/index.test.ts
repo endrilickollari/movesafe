@@ -8,7 +8,13 @@ describe('@movesafe/core', () => {
   });
 
   it('keeps lower-level APIs behind the advanced entry point', () => {
-    expect(Object.keys(core).sort()).toEqual(['CORE_VERSION', 'applyMove', 'checkImports', 'planMove']);
+    expect(Object.keys(core).sort()).toEqual([
+      'CORE_VERSION',
+      'MOVE_PLAN_SCHEMA_VERSION',
+      'applyMove',
+      'checkImports',
+      'planMove',
+    ]);
     expect(advanced.buildImportGraph).toBeTypeOf('function');
     expect('buildImportGraph' in core).toBe(false);
   });

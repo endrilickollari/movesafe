@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyDirectoryMove, buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
+import { applyMove, buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
 
 function fixtureSourcePath(): string {
   return fileURLToPath(new URL('./fixtures/planner/directory-move-project', import.meta.url));
@@ -37,7 +37,7 @@ function findLeftoverTempFiles(dir: string): string[] {
     .filter((entry) => entry.includes('.movesafe.'));
 }
 
-describe('applyDirectoryMove', () => {
+describe('applyMove (directory)', () => {
   it('relocates every file, rewrites every affected import, and leaves no temp/backup files', () => {
     const tsconfigPath = join(projectDir, 'tsconfig.json');
     const graph = buildImportGraph(tsconfigPath);
@@ -46,7 +46,7 @@ describe('applyDirectoryMove', () => {
     const to = join(projectDir, 'src', 'relocated', 'feature');
 
     const plan = planDirectoryMove(from, to, graph, tsconfig);
-    const result = applyDirectoryMove(plan);
+    const result = applyMove(plan);
 
     expect(result.applied).toBe(true);
     expect(result.diagnostics).toEqual([]);
@@ -72,10 +72,36 @@ describe('applyDirectoryMove', () => {
     expect(externalContent).toContain("from './relocated/feature/a.js'");
     expect(externalContent).toContain("from '@app/relocated/feature/a'");
 
-    const externalFixedContent = readFileSync(join(projectDir, 'src', 'external-fixed.ts'), 'utf8');
-    expect(externalFixedContent).toContain("from '@fixed/c'");
-
     expect(findLeftoverTempFiles(projectDir)).toEqual([]);
+  });
+
+  it('reports non-source files from the requested directory root, not the files common ancestor', () => {
+    const rootProject = join(tempDir, 'root-project');
+    mkdirSync(join(rootProject, 'src'), { recursive: true });
+    writeFileSync(
+      join(rootProject, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { module: 'ESNext' }, include: ['src'] }),
+      'utf8',
+    );
+    writeFileSync(join(rootProject, 'src', 'index.ts'), "export const value = 'value';\n", 'utf8');
+
+    const tsconfigPath = join(rootProject, 'tsconfig.json');
+    const graph = buildImportGraph(tsconfigPath);
+    const tsconfig = loadTsconfig(tsconfigPath);
+    const to = join(tempDir, 'relocated-project');
+
+    const result = applyMove(planDirectoryMove(rootProject, to, graph, tsconfig));
+
+    expect(result.applied).toBe(true);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        code: 'non-source-files-left-behind',
+        path: rootProject,
+      }),
+    );
+    expect(existsSync(join(rootProject, 'tsconfig.json'))).toBe(true);
+    expect(existsSync(join(to, 'src', 'index.ts'))).toBe(true);
   });
 
   it('refuses when a file has changed since planning, leaving every file untouched', () => {
@@ -91,7 +117,7 @@ describe('applyDirectoryMove', () => {
     const mutated = readFileSync(externalPath, 'utf8').replace('./feature/a.js', './feature/a-changed.js');
     writeFileSync(externalPath, mutated, 'utf8');
 
-    const result = applyDirectoryMove(plan);
+    const result = applyMove(plan);
 
     expect(result.applied).toBe(false);
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ severity: 'error', code: 'stale-content' }));
@@ -118,7 +144,7 @@ describe('applyDirectoryMove', () => {
     const beforeExternal = readFileSync(join(projectDir, 'src', 'external.ts'), 'utf8');
     const beforeA = readFileSync(join(projectDir, 'src', 'feature', 'a.ts'), 'utf8');
 
-    const result = applyDirectoryMove(plan);
+    const result = applyMove(plan);
 
     expect(result.applied).toBe(false);
 
