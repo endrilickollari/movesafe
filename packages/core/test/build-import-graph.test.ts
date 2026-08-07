@@ -50,6 +50,31 @@ describe('buildImportGraph', () => {
     );
   });
 
+  it('accepts an ambient module when the TypeScript Program does', () => {
+    const graph = buildImportGraph(fixturePath('ambient-module', 'tsconfig.json'));
+    const edge = graph.edges.find((candidate) => candidate.specifier === './logo.svg');
+    const declarationEdge = graph.edges.find(
+      (candidate) => candidate.specifier === 'virtual:fixture',
+    );
+    const missingEdge = graph.edges.find(
+      (candidate) => candidate.specifier === './missing.js',
+    );
+
+    expect(edge).toMatchObject({ target: { kind: 'external', packageName: undefined } });
+    expect(declarationEdge).toMatchObject({
+      formKind: 'moduleAugmentation',
+      target: { kind: 'external', packageName: undefined },
+    });
+    expect(missingEdge).toMatchObject({ target: { kind: 'unresolved' } });
+    expect(
+      graph.warnings.some(
+        (warning) =>
+          warning.source === 'resolver' &&
+          ['./logo.svg', 'virtual:fixture'].includes(warning.warning.specifier),
+      ),
+    ).toBe(false);
+  });
+
   it('classifies an in-project non-source file (json) as a distinct target kind', () => {
     const graph = buildImportGraph(fixturePath('basic-project', 'tsconfig.json'));
     const edge = graph.edges.find((e) => e.specifier === './data.json');
@@ -70,7 +95,9 @@ describe('buildImportGraph', () => {
 
   it('classifies a workspace-shaped package as external when no workspacePackages option is given', () => {
     const graph = buildImportGraph(fixturePath('workspace-edge', 'tsconfig.json'));
-    expect(graph.edges[0]).toMatchObject({ target: { kind: 'external', packageName: '@fixture/lib' } });
+    expect(graph.edges[0]).toMatchObject({
+      target: { kind: 'external', packageName: '@fixture/lib' },
+    });
   });
 
   it('reclassifies a workspace-shaped package as outOfProject when its directory is supplied', () => {

@@ -1,17 +1,37 @@
 import type * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { classifyResolvedModule, resolveSpecifier } from '../src/module-resolution/index.js';
+import {
+  classifyResolvedModule,
+  resolveSpecifier,
+  type ResolveSpecifierOptions,
+} from '../src/module-resolution/index.js';
+import { createBuildImportGraphRuntime } from '../src/graph/index.js';
 import { loadTsconfig } from '../src/tsconfig/index.js';
+import type { LoadedTsconfig } from '../src/tsconfig/types.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/resolver/module-resolution/${segments.join('/')}`, import.meta.url)
     .pathname;
 }
 
+function resolveFromProject(
+  specifier: string,
+  containingFile: string,
+  tsconfig: LoadedTsconfig,
+  options: ResolveSpecifierOptions = {},
+) {
+  const runtime = createBuildImportGraphRuntime(tsconfig);
+  return resolveSpecifier(specifier, containingFile, runtime.program, {
+    moduleResolutionHost: runtime.moduleResolutionHost,
+    moduleResolutionCache: runtime.moduleResolutionCache,
+    ...options,
+  });
+}
+
 describe('resolveSpecifier', () => {
   it('resolves a plain relative specifier', () => {
     const tsconfig = loadTsconfig(fixturePath('relative', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       './b.js',
       fixturePath('relative', 'src', 'a.ts'),
       tsconfig,
@@ -26,7 +46,7 @@ describe('resolveSpecifier', () => {
 
   it('resolves an aliased specifier via paths/baseUrl', () => {
     const tsconfig = loadTsconfig(fixturePath('alias', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       '@app/target',
       fixturePath('alias', 'src', 'target.ts'),
       tsconfig,
@@ -41,7 +61,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a non-matching aliased specifier as unresolved, with a warning', () => {
     const tsconfig = loadTsconfig(fixturePath('alias', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       '@app/missing',
       fixturePath('alias', 'src', 'target.ts'),
       tsconfig,
@@ -53,7 +73,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a real node_modules package as external', () => {
     const tsconfig = loadTsconfig(fixturePath('node-modules', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'fake-external-pkg',
       fixturePath('node-modules', 'src', 'index.ts'),
       tsconfig,
@@ -64,7 +84,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a node:-prefixed built-in as external, not unresolved', () => {
     const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'node:fs',
       fixturePath('node-builtin', 'src', 'index.ts'),
       tsconfig,
@@ -75,7 +95,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a bare (unprefixed) built-in name the same way', () => {
     const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'fs',
       fixturePath('node-builtin', 'src', 'index.ts'),
       tsconfig,
@@ -86,7 +106,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a node:-prefixed subpath built-in as external', () => {
     const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'node:fs/promises',
       fixturePath('node-builtin', 'src', 'index.ts'),
       tsconfig,
@@ -97,7 +117,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a bare subpath built-in the same way', () => {
     const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'fs/promises',
       fixturePath('node-builtin', 'src', 'index.ts'),
       tsconfig,
@@ -108,7 +128,7 @@ describe('resolveSpecifier', () => {
 
   it('classifies a node:-only built-in with no legacy unprefixed form as external', () => {
     const tsconfig = loadTsconfig(fixturePath('node-builtin', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       'node:test',
       fixturePath('node-builtin', 'src', 'index.ts'),
       tsconfig,
@@ -118,8 +138,10 @@ describe('resolveSpecifier', () => {
   });
 
   it('classifies a workspace-shaped package as external when no workspacePackages map is given', () => {
-    const tsconfig = loadTsconfig(fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'));
-    const { result, warnings } = resolveSpecifier(
+    const tsconfig = loadTsconfig(
+      fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'),
+    );
+    const { result, warnings } = resolveFromProject(
       '@fixture/pkg-lib',
       fixturePath('workspace-package', 'pkg-consumer', 'src', 'index.ts'),
       tsconfig,
@@ -129,14 +151,16 @@ describe('resolveSpecifier', () => {
   });
 
   it('reclassifies a workspace-shaped package as resolved when its directory is supplied', () => {
-    const tsconfig = loadTsconfig(fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'));
+    const tsconfig = loadTsconfig(
+      fixturePath('workspace-package', 'pkg-consumer', 'tsconfig.json'),
+    );
     const workspacePackages = new Map([
       [
         '@fixture/pkg-lib',
         fixturePath('workspace-package', 'pkg-consumer', 'node_modules', '@fixture', 'pkg-lib'),
       ],
     ]);
-    const { result, warnings } = resolveSpecifier(
+    const { result, warnings } = resolveFromProject(
       '@fixture/pkg-lib',
       fixturePath('workspace-package', 'pkg-consumer', 'src', 'index.ts'),
       tsconfig,
@@ -153,8 +177,12 @@ describe('resolveSpecifier', () => {
   it('classifies a missing relative specifier as unresolved without throwing', () => {
     const tsconfig = loadTsconfig(fixturePath('unresolved', 'tsconfig.json'));
     const containingFile = fixturePath('unresolved', 'src', 'index.ts');
-    expect(() => resolveSpecifier('./does-not-exist.js', containingFile, tsconfig)).not.toThrow();
-    const { result, warnings } = resolveSpecifier('./does-not-exist.js', containingFile, tsconfig);
+    expect(() => resolveFromProject('./does-not-exist.js', containingFile, tsconfig)).not.toThrow();
+    const { result, warnings } = resolveFromProject(
+      './does-not-exist.js',
+      containingFile,
+      tsconfig,
+    );
     expect(result).toMatchObject({ kind: 'unresolved' });
     expect(warnings.length).toBeGreaterThan(0);
   });
@@ -183,7 +211,8 @@ describe('classifyResolvedModule', () => {
 
   it('classifies an external module with no workspacePackages map as external', () => {
     const resolvedModule = fakeResolvedModule({
-      resolvedFileName: '/repo/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/typescript.d.ts',
+      resolvedFileName:
+        '/repo/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/typescript.d.ts',
       packageId: { name: 'typescript', subModuleName: 'lib/typescript.d.ts', version: '5.9.3' },
     });
     expect(classifyResolvedModule(resolvedModule, undefined)).toEqual({
@@ -218,7 +247,8 @@ describe('classifyResolvedModule', () => {
 
   it('does not misclassify a same-named external package outside the known workspace directory', () => {
     const resolvedModule = fakeResolvedModule({
-      resolvedFileName: '/repo/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/typescript.d.ts',
+      resolvedFileName:
+        '/repo/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/typescript.d.ts',
       packageId: { name: 'typescript', subModuleName: 'lib/typescript.d.ts', version: '5.9.3' },
     });
     const workspacePackages = new Map([['@movesafe/core', '/repo/packages/core']]);

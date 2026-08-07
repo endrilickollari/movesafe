@@ -1,7 +1,7 @@
 import { isBuiltin } from 'node:module';
 import * as ts from 'typescript';
-import type { LoadedTsconfig } from '../tsconfig/index.js';
 import { classifyResolvedModule } from './classify-resolution.js';
+import { hasModuleResolutionDiagnostic } from './diagnostics.js';
 import type {
   ResolvedSpecifier,
   ResolveSpecifierOptions,
@@ -12,29 +12,71 @@ import type {
 export function resolveSpecifier(
   specifier: string,
   containingFile: string,
-  tsconfig: LoadedTsconfig,
+  program: ts.Program,
   options: ResolveSpecifierOptions = {},
 ): ResolveSpecifierResult {
+  const compilerOptions = program.getCompilerOptions();
+  const semanticResolution = options.semanticResolution;
+  const sourceFile = program.getSourceFile(containingFile);
+  const literal =
+    semanticResolution && sourceFile
+      ? ts.getTokenAtPosition(sourceFile, semanticResolution.literalOffset.start)
+      : undefined;
+  const resolutionMode =
+    sourceFile && literal && ts.isStringLiteralLike(literal)
+      ? ts.getModeForUsageLocation(sourceFile, literal, compilerOptions)
+      : undefined;
   const { resolvedModule } = ts.resolveModuleName(
     specifier,
     containingFile,
-    tsconfig.compilerOptions,
+    compilerOptions,
     options.moduleResolutionHost ?? ts.sys,
     options.moduleResolutionCache,
+    undefined,
+    resolutionMode,
   );
 
   if (resolvedModule === undefined) {
-    // `ts.resolveModuleName` only does file-based resolution and has no way
-    // to see the ambient `declare module 'node:fs'`-style types `@types/node`
-    // provides (those are only visible to a full type-checker/Program) — so a
-    // genuine Node built-in always "fails" here even though real `tsc` (and
-    // Node itself) resolves it fine. `isBuiltin` is sourced from the current
-    // Node runtime's own built-in list, so this never goes stale across Node
-    // versions, and accepts both `node:`-prefixed and bare forms.
+    // Keep the runtime's canonical built-in names even when no Node ambient
+    // declarations are installed in the project.
     if (isBuiltin(specifier)) {
-      const packageName = specifier.startsWith('node:') ? specifier.slice('node:'.length) : specifier;
-      const result: ResolvedSpecifier = { kind: 'external', specifier, containingFile, packageName };
+      const packageName = specifier.startsWith('node:')
+        ? specifier.slice('node:'.length)
+        : specifier;
+      const result: ResolvedSpecifier = {
+        kind: 'external',
+        specifier,
+        containingFile,
+        packageName,
+      };
       return { result, warnings: [] };
+    }
+
+    if (
+      semanticResolution &&
+      semanticResolution.formKind !== 'requireCall' &&
+      sourceFile
+    ) {
+      const symbol =
+        literal && ts.isStringLiteralLike(literal)
+          ? program.getTypeChecker().getSymbolAtLocation(literal)
+          : undefined;
+      if (
+        symbol &&
+        !hasModuleResolutionDiagnostic(
+          semanticResolution.diagnostics(),
+          sourceFile,
+          semanticResolution.literalOffset,
+        )
+      ) {
+        const result: ResolvedSpecifier = {
+          kind: 'external',
+          specifier,
+          containingFile,
+          packageName: undefined,
+        };
+        return { result, warnings: [] };
+      }
     }
 
     const result: ResolvedSpecifier = { kind: 'unresolved', specifier, containingFile };

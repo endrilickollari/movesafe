@@ -1,4 +1,6 @@
 import type * as ts from 'typescript';
+import type { ImportFormKind } from '../scanner/types.js';
+import type { SourceOffset } from '../ts-utils/types.js';
 
 export type ResolvedSpecifierKind = 'resolved' | 'external' | 'unresolved';
 
@@ -40,9 +42,7 @@ export interface ResolvedSpecifierUnresolved {
 }
 
 export type ResolvedSpecifier =
-  | ResolvedSpecifierResolved
-  | ResolvedSpecifierExternal
-  | ResolvedSpecifierUnresolved;
+  ResolvedSpecifierResolved | ResolvedSpecifierExternal | ResolvedSpecifierUnresolved;
 
 export interface ResolveSpecifierResult {
   readonly result: ResolvedSpecifier;
@@ -58,4 +58,9 @@ export interface ResolveSpecifierOptions {
   readonly workspacePackages?: ReadonlyMap<string, string>;
   readonly moduleResolutionHost?: ts.ModuleResolutionHost;
   readonly moduleResolutionCache?: ts.ModuleResolutionCache;
+  readonly semanticResolution?: {
+    readonly formKind: ImportFormKind;
+    readonly literalOffset: SourceOffset;
+    readonly diagnostics: () => readonly ts.Diagnostic[];
+  };
 }

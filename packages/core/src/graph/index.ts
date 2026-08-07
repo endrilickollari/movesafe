@@ -14,6 +14,7 @@ export type {
   ImportGraphNode,
 } from './types.js';
 export type { DiscoveredProjectFiles } from './discover-project-files.js';
-export { buildImportGraph } from './build-import-graph.js';
+export type { BuildImportGraphRuntime } from './build-import-graph.js';
+export { buildImportGraph, createBuildImportGraphRuntime } from './build-import-graph.js';
 export { classifyEdgeTarget } from './classify-edge-target.js';
 export { discoverProjectFiles } from './discover-project-files.js';

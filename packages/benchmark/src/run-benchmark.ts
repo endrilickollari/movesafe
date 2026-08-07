@@ -40,9 +40,10 @@ function repoPassed(result: RepoResult): boolean {
 
 function formatResultLine(result: RepoResult): string {
   const seconds = (result.durationMs / 1000).toFixed(1);
+  const graphSeconds = (result.graphBuildDurationMs / 1000).toFixed(2);
 
   if (result.error) {
-    return `✖ ${result.repoName}: ${result.error} — ${seconds}s`;
+    return `✖ ${result.repoName}: ${result.error} — ${seconds}s (${result.graphBuildCount} graph builds in ${graphSeconds}s)`;
   }
 
   const applied = result.moves.filter((m) => m.applied).length;
@@ -53,7 +54,7 @@ function formatResultLine(result: RepoResult): string {
     ? `tsc regressed (${result.tscBaselineErrorCount} → ${result.tscFinalErrorCount} errors)`
     : `tsc no regression (${result.tscBaselineErrorCount} baseline errors)`;
 
-  return `${status} ${result.repoName} (${result.category}): ${applied}/${result.moves.length} moves applied${refused > 0 ? ` (${refused} safely refused)` : ''}, ${checkStatus}, ${tscStatus} — ${seconds}s`;
+  return `${status} ${result.repoName} (${result.category}): ${applied}/${result.moves.length} moves applied${refused > 0 ? ` (${refused} safely refused)` : ''}, ${checkStatus}, ${tscStatus} — ${seconds}s (${result.graphBuildCount} graph builds in ${graphSeconds}s)`;
 }
 
 function main(): void {

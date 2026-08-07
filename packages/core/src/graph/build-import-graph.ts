@@ -1,11 +1,18 @@
-import type * as ts from 'typescript';
+import { dirname } from 'node:path';
+import * as ts from 'typescript';
+import { collectModuleResolutionDiagnostics } from '../module-resolution/diagnostics.js';
 import { resolveSpecifier } from '../module-resolution/index.js';
 import { scanFile, scanSourceFile } from '../scanner/index.js';
 import { loadTsconfig } from '../tsconfig/index.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
 import { classifyEdgeTarget } from './classify-edge-target.js';
 import { discoverProjectFiles } from './discover-project-files.js';
-import type { BuildImportGraphOptions, GraphWarning, ImportGraph, ImportGraphEdge } from './types.js';
+import type {
+  BuildImportGraphOptions,
+  GraphWarning,
+  ImportGraph,
+  ImportGraphEdge,
+} from './types.js';
 
 export function buildImportGraph(
   configFilePath: string,
@@ -19,6 +26,62 @@ export interface BuildImportGraphRuntime {
   readonly program?: ts.Program;
   readonly moduleResolutionHost?: ts.ModuleResolutionHost;
   readonly moduleResolutionCache?: ts.ModuleResolutionCache;
+  readonly getModuleResolutionDiagnostics?: (sourceFile: ts.SourceFile) => readonly ts.Diagnostic[];
+}
+
+export function createBuildImportGraphRuntime(
+  tsconfig: LoadedTsconfig,
+): Required<BuildImportGraphRuntime> {
+  const canonicalFileName = ts.sys.useCaseSensitiveFileNames
+    ? (fileName: string): string => fileName
+    : (fileName: string): string => fileName.toLowerCase();
+  const moduleResolutionCache = ts.createModuleResolutionCache(
+    dirname(tsconfig.configFilePath),
+    canonicalFileName,
+    tsconfig.compilerOptions,
+  );
+  const moduleResolutionHost = ts.createCompilerHost(tsconfig.compilerOptions, true);
+
+  moduleResolutionHost.resolveModuleNameLiterals = (
+    moduleLiterals,
+    containingFile,
+    redirectedReference,
+    compilerOptions,
+    containingSourceFile,
+  ) =>
+    moduleLiterals.map((literal) =>
+      ts.resolveModuleName(
+        literal.text,
+        containingFile,
+        compilerOptions,
+        moduleResolutionHost,
+        moduleResolutionCache,
+        redirectedReference,
+        ts.getModeForUsageLocation(containingSourceFile, literal, compilerOptions),
+      ),
+    );
+
+  const program = ts.createProgram({
+    rootNames: tsconfig.fileNames,
+    options: tsconfig.compilerOptions,
+    projectReferences: tsconfig.references.map((reference) => ({ path: reference.path })),
+    host: moduleResolutionHost,
+  });
+  const moduleResolutionDiagnostics = new Map<ts.SourceFile, readonly ts.Diagnostic[]>();
+  const getModuleResolutionDiagnostics = (sourceFile: ts.SourceFile): readonly ts.Diagnostic[] => {
+    const cached = moduleResolutionDiagnostics.get(sourceFile);
+    if (cached) return cached;
+    const diagnostics = collectModuleResolutionDiagnostics(program, [sourceFile]);
+    moduleResolutionDiagnostics.set(sourceFile, diagnostics);
+    return diagnostics;
+  };
+
+  return {
+    program,
+    moduleResolutionHost,
+    moduleResolutionCache,
+    getModuleResolutionDiagnostics,
+  };
 }
 
 export function buildImportGraphFromTsconfig(
@@ -26,6 +89,19 @@ export function buildImportGraphFromTsconfig(
   options: BuildImportGraphOptions = {},
   runtime: BuildImportGraphRuntime = {},
 ): ImportGraph {
+  const activeRuntime: BuildImportGraphRuntime & { readonly program: ts.Program } = runtime.program
+    ? { ...runtime, program: runtime.program }
+    : createBuildImportGraphRuntime(tsconfig);
+  const diagnosticsBySourceFile = new Map<ts.SourceFile, readonly ts.Diagnostic[]>();
+  const getModuleResolutionDiagnostics = (sourceFile: ts.SourceFile): readonly ts.Diagnostic[] => {
+    const cached = diagnosticsBySourceFile.get(sourceFile);
+    if (cached) return cached;
+    const diagnostics = activeRuntime.getModuleResolutionDiagnostics
+      ? activeRuntime.getModuleResolutionDiagnostics(sourceFile)
+      : collectModuleResolutionDiagnostics(activeRuntime.program, [sourceFile]);
+    diagnosticsBySourceFile.set(sourceFile, diagnostics);
+    return diagnostics;
+  };
   const warnings: GraphWarning[] = tsconfig.diagnostics.map((diagnostic) => ({
     source: 'tsconfig',
     diagnostic,
@@ -43,7 +119,7 @@ export function buildImportGraphFromTsconfig(
   const edges: ImportGraphEdge[] = [];
 
   for (const filePath of sourceFiles) {
-    const sourceFile = runtime.program?.getSourceFile(filePath);
+    const sourceFile = activeRuntime.program.getSourceFile(filePath);
     const scanResult = sourceFile ? scanSourceFile(sourceFile) : scanFile(filePath);
     for (const warning of scanResult.warnings) {
       warnings.push({ source: 'scanner', filePath, warning });
@@ -53,11 +129,16 @@ export function buildImportGraphFromTsconfig(
       const { result, warnings: resolveWarnings } = resolveSpecifier(
         specifierRecord.moduleText,
         filePath,
-        tsconfig,
+        activeRuntime.program,
         {
           workspacePackages,
-          moduleResolutionHost: runtime.moduleResolutionHost,
-          moduleResolutionCache: runtime.moduleResolutionCache,
+          moduleResolutionHost: activeRuntime.moduleResolutionHost,
+          moduleResolutionCache: activeRuntime.moduleResolutionCache,
+          semanticResolution: {
+            diagnostics: () => (sourceFile ? getModuleResolutionDiagnostics(sourceFile) : []),
+            formKind: specifierRecord.formKind,
+            literalOffset: specifierRecord.literalOffset,
+          },
         },
       );
       for (const warning of resolveWarnings) {

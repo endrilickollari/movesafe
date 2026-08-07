@@ -1,10 +1,7 @@
 import type * as ts from 'typescript';
 import type { ImportGraph, ImportGraphEdge } from '../graph/types.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
-import type {
-  DetectWorkspacePackagesResult,
-  WorkspaceDiagnostic,
-} from '../workspace/types.js';
+import type { DetectWorkspacePackagesResult, WorkspaceDiagnostic } from '../workspace/types.js';
 
 export interface WorkspaceProject {
   readonly configFilePath: string;
@@ -37,6 +34,7 @@ export interface ProjectAnalysis {
   readonly program: ts.Program;
   readonly sourceFiles: ReadonlyMap<string, ts.SourceFile>;
   readonly moduleResolutionCache: ts.ModuleResolutionCache;
+  readonly getModuleResolutionDiagnostics: () => readonly ts.Diagnostic[];
   readonly graph: ImportGraph;
   readonly index: ImportGraphIndex;
 }

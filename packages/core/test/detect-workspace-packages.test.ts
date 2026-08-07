@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { detectWorkspacePackages, loadTsconfig } from '../src/advanced.js';
+import {
+  createBuildImportGraphRuntime,
+  detectWorkspacePackages,
+  loadTsconfig,
+} from '../src/advanced.js';
 import { resolveSpecifier } from '../src/module-resolution/index.js';
 
 function fixturePath(...segments: string[]): string {
@@ -79,7 +83,7 @@ describe('detectWorkspacePackages', () => {
     );
   });
 
-  it('detects the real monorepo\'s own workspace packages', () => {
+  it("detects the real monorepo's own workspace packages", () => {
     // Uses the real monorepo (root two levels above packages/core) as a smoke
     // test of detection itself. Deliberately does not resolve any specifier
     // through this map: that would follow @movesafe/core's package.json into
@@ -106,11 +110,16 @@ describe('detectWorkspacePackages', () => {
       ['@fixture/pkg-lib', `${resolverFixture}/node_modules/@fixture/pkg-lib`],
     ]);
     const tsconfig = loadTsconfig(`${resolverFixture}/tsconfig.json`);
+    const runtime = createBuildImportGraphRuntime(tsconfig);
     const { result } = resolveSpecifier(
       '@fixture/pkg-lib',
       `${resolverFixture}/src/index.ts`,
-      tsconfig,
-      { workspacePackages },
+      runtime.program,
+      {
+        workspacePackages,
+        moduleResolutionHost: runtime.moduleResolutionHost,
+        moduleResolutionCache: runtime.moduleResolutionCache,
+      },
     );
     expect(result).toMatchObject({ kind: 'resolved', isWorkspacePackage: true });
   });

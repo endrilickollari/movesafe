@@ -28,7 +28,10 @@ export interface MoveOutcome {
   readonly applied: boolean;
   /** True when the plan itself refused (error diagnostics) before ever touching disk — a safe, expected outcome, distinct from an apply that was attempted and failed. */
   readonly refused: boolean;
-  readonly diagnostics: readonly { readonly severity: 'error' | 'warning'; readonly message: string }[];
+  readonly diagnostics: readonly {
+    readonly severity: 'error' | 'warning';
+    readonly message: string;
+  }[];
 }
 
 export interface RepoResult {
@@ -42,11 +45,22 @@ export interface RepoResult {
   readonly tscFinalErrorCount: number | undefined;
   readonly tscOutput: string | undefined;
   readonly durationMs: number;
+  readonly graphBuildCount: number;
+  readonly graphBuildDurationMs: number;
   readonly error: string | undefined;
 }
 
-function buildGraph(tsconfigPath: string, workspacePackages: ReadonlyMap<string, string>): ImportGraph {
-  return buildImportGraph(tsconfigPath, { workspacePackages: Object.fromEntries(workspacePackages) });
+function buildGraph(
+  tsconfigPath: string,
+  workspacePackages: ReadonlyMap<string, string>,
+  graphBuildDurations: number[],
+): ImportGraph {
+  const startedAt = performance.now();
+  const graph = buildImportGraph(tsconfigPath, {
+    workspacePackages: Object.fromEntries(workspacePackages),
+  });
+  graphBuildDurations.push(performance.now() - startedAt);
+  return graph;
 }
 
 interface PrimaryProject {
@@ -66,14 +80,16 @@ interface PrimaryProject {
 function resolvePrimaryProject(
   destDir: string,
   workspacePackages: ReadonlyMap<string, string>,
+  graphBuildDurations: number[],
 ): PrimaryProject | undefined {
-  const candidatePaths = [findRepoTsconfig(destDir), ...[...workspacePackages.values()].map(findRepoTsconfig)].filter(
-    (path): path is string => path !== undefined,
-  );
+  const candidatePaths = [
+    findRepoTsconfig(destDir),
+    ...[...workspacePackages.values()].map(findRepoTsconfig),
+  ].filter((path): path is string => path !== undefined);
 
   for (const tsconfigPath of candidatePaths) {
     const tsconfig = loadTsconfig(tsconfigPath);
-    const graph = buildGraph(tsconfigPath, workspacePackages);
+    const graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     if (graph.nodes.length > 0) {
       return { tsconfigPath, tsconfig, graph };
     }
@@ -86,7 +102,11 @@ function applySingleFileOrCrossPackage(
   kind: 'singleFile' | 'crossPackage',
   from: string,
   to: string,
-  ctx: { readonly graph: ImportGraph; readonly tsconfig: LoadedTsconfig; readonly workspacePackages: ReadonlyMap<string, string> },
+  ctx: {
+    readonly graph: ImportGraph;
+    readonly tsconfig: LoadedTsconfig;
+    readonly workspacePackages: ReadonlyMap<string, string>;
+  },
 ): MoveOutcome {
   const plan =
     kind === 'crossPackage'
@@ -116,7 +136,14 @@ function applyDirectory(
   const plan = planDirectoryMove(from, to, ctx.graph, ctx.tsconfig);
 
   if (plan.diagnostics.some((d) => d.severity === 'error')) {
-    return { kind: 'directory', from, to, applied: false, refused: true, diagnostics: plan.diagnostics };
+    return {
+      kind: 'directory',
+      from,
+      to,
+      applied: false,
+      refused: true,
+      diagnostics: plan.diagnostics,
+    };
   }
 
   const result = applyDirectoryMove(plan);
@@ -130,7 +157,12 @@ function applyDirectory(
   };
 }
 
-function errorResult(repoName: string, startedAt: number, error: unknown): RepoResult {
+function errorResult(
+  repoName: string,
+  startedAt: number,
+  graphBuildDurations: readonly number[],
+  error: unknown,
+): RepoResult {
   return {
     repoName,
     category: undefined,
@@ -141,6 +173,8 @@ function errorResult(repoName: string, startedAt: number, error: unknown): RepoR
     tscFinalErrorCount: undefined,
     tscOutput: undefined,
     durationMs: Date.now() - startedAt,
+    graphBuildCount: graphBuildDurations.length,
+    graphBuildDurationMs: graphBuildDurations.reduce((total, duration) => total + duration, 0),
     error: error instanceof Error ? error.message : String(error),
   };
 }
@@ -148,17 +182,19 @@ function errorResult(repoName: string, startedAt: number, error: unknown): RepoR
 export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): RepoResult {
   const startedAt = Date.now();
   const destDir = join(testReposDir, repo.name);
+  const graphBuildDurations: number[] = [];
 
   try {
     cloneOrReset(repo, destDir);
     installDependencies(destDir);
 
     const { workspacePackages } = detectWorkspacePackages(destDir);
-    const primaryProject = resolvePrimaryProject(destDir, workspacePackages);
+    const primaryProject = resolvePrimaryProject(destDir, workspacePackages, graphBuildDurations);
     if (!primaryProject) {
       return errorResult(
         repo.name,
         startedAt,
+        graphBuildDurations,
         `No candidate tsconfig.json (root or any workspace package) produced a non-empty project under ${destDir}.`,
       );
     }
@@ -177,29 +213,41 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
 
     if (selected.singleFile) {
       moves.push(
-        applySingleFileOrCrossPackage('singleFile', selected.singleFile.from, selected.singleFile.to, {
-          graph,
-          tsconfig,
-          workspacePackages,
-        }),
+        applySingleFileOrCrossPackage(
+          'singleFile',
+          selected.singleFile.from,
+          selected.singleFile.to,
+          {
+            graph,
+            tsconfig,
+            workspacePackages,
+          },
+        ),
       );
-      graph = buildGraph(tsconfigPath, workspacePackages);
+      graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.directory) {
-      moves.push(applyDirectory(selected.directory.from, selected.directory.to, { graph, tsconfig }));
-      graph = buildGraph(tsconfigPath, workspacePackages);
+      moves.push(
+        applyDirectory(selected.directory.from, selected.directory.to, { graph, tsconfig }),
+      );
+      graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.crossPackage) {
       moves.push(
-        applySingleFileOrCrossPackage('crossPackage', selected.crossPackage.from, selected.crossPackage.to, {
-          graph,
-          tsconfig,
-          workspacePackages,
-        }),
+        applySingleFileOrCrossPackage(
+          'crossPackage',
+          selected.crossPackage.from,
+          selected.crossPackage.to,
+          {
+            graph,
+            tsconfig,
+            workspacePackages,
+          },
+        ),
       );
-      graph = buildGraph(tsconfigPath, workspacePackages);
+      graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     const checkResult = runCheck(graph);
@@ -217,9 +265,11 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
       tscFinalErrorCount: finalTsc.errorCount,
       tscOutput: finalTsc.output,
       durationMs: Date.now() - startedAt,
+      graphBuildCount: graphBuildDurations.length,
+      graphBuildDurationMs: graphBuildDurations.reduce((total, duration) => total + duration, 0),
       error: undefined,
     };
   } catch (error) {
-    return errorResult(repo.name, startedAt, error);
+    return errorResult(repo.name, startedAt, graphBuildDurations, error);
   }
 }
