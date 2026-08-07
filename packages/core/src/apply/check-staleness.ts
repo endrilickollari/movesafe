@@ -1,33 +1,72 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { MovePlan } from '../planner/types.js';
+import type { ApplyFilesystem } from './filesystem.js';
+import { nodeFilesystem } from './filesystem.js';
 import type { ApplyDiagnostic } from './types.js';
+
+function sha256(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}
 
 /**
  * Verifies nothing relevant has changed since the plan was computed, by
  * walking `plan.preconditions` generically — the same array shape covers
- * file/directory/cross-package plans alike, replacing what used to be three
- * bespoke staleness checks. Edit-anchor preconditions are checked against
- * live content rather than a separate mtime/hash snapshot: the plan's own
- * `Edit` model already encodes exactly what it believed was there, so
- * confirming that directly is both simpler and more precise than a
- * whole-file staleness heuristic.
+ * file/directory/cross-package plans alike. A sealed (`ready`) plan carries
+ * whole-file `content-fingerprint` preconditions instead of `edit-anchor`s
+ * (see `planner/seal-move-plan.ts`) — any drift anywhere in a touched file,
+ * not just at an edited span, rejects the plan before mutation.
+ * `source-exists`/`edit-anchor` belong to unsealed draft plans, kept for
+ * structural completeness; apply rejects those drafts before preflight.
  */
-export function checkPlanPreconditions(plan: MovePlan): ApplyDiagnostic[] {
+export function checkPlanPreconditions(
+  plan: MovePlan,
+  fs: ApplyFilesystem = nodeFilesystem,
+): ApplyDiagnostic[] {
   const diagnostics: ApplyDiagnostic[] = [];
   const contentByFile = new Map<string, string | undefined>();
   const missingFilesReported = new Set<string>();
+  const staleFiles = new Set<string>();
+
+  const reportReadFailure = (file: string, err?: unknown): void => {
+    if (missingFilesReported.has(file)) return;
+    missingFilesReported.add(file);
+    staleFiles.add(file);
+    const detail = err instanceof Error ? `: ${err.message}` : '';
+    diagnostics.push({
+      severity: 'error',
+      code: 'source-file-missing',
+      message: `${file} cannot be read for preflight validation${detail}`,
+      path: file,
+    });
+  };
 
   const readCached = (file: string): string | undefined => {
     if (contentByFile.has(file)) return contentByFile.get(file);
-    const content = existsSync(file) ? readFileSync(file, 'utf8') : undefined;
-    contentByFile.set(file, content);
-    return content;
+    try {
+      const content = fs.existsSync(file) ? fs.readFileSync(file) : undefined;
+      contentByFile.set(file, content);
+      if (content === undefined) reportReadFailure(file);
+      return content;
+    } catch (err) {
+      contentByFile.set(file, undefined);
+      reportReadFailure(file, err);
+      return undefined;
+    }
+  };
+
+  const exists = (path: string): boolean | undefined => {
+    try {
+      return fs.existsSync(path);
+    } catch (err) {
+      reportReadFailure(path, err);
+      return undefined;
+    }
   };
 
   for (const precondition of plan.preconditions) {
     switch (precondition.kind) {
       case 'source-directory':
-        if (!existsSync(precondition.path)) {
+        if (exists(precondition.path) === false) {
           diagnostics.push({
             severity: 'error',
             code: 'source-file-missing',
@@ -38,7 +77,7 @@ export function checkPlanPreconditions(plan: MovePlan): ApplyDiagnostic[] {
         break;
 
       case 'source-exists':
-        if (!existsSync(precondition.path)) {
+        if (exists(precondition.path) === false) {
           diagnostics.push({
             severity: 'error',
             code: 'source-file-missing',
@@ -49,7 +88,7 @@ export function checkPlanPreconditions(plan: MovePlan): ApplyDiagnostic[] {
         break;
 
       case 'destination-absent':
-        if (existsSync(precondition.path)) {
+        if (exists(precondition.path) === true) {
           diagnostics.push({
             severity: 'error',
             code: 'destination-already-exists',
@@ -61,21 +100,11 @@ export function checkPlanPreconditions(plan: MovePlan): ApplyDiagnostic[] {
 
       case 'edit-anchor': {
         const content = readCached(precondition.file);
-        if (content === undefined) {
-          if (!missingFilesReported.has(precondition.file)) {
-            missingFilesReported.add(precondition.file);
-            diagnostics.push({
-              severity: 'error',
-              code: 'stale-content',
-              message: `${precondition.file} no longer exists — cannot apply its edits.`,
-              path: precondition.file,
-            });
-          }
-          break;
-        }
+        if (content === undefined) break;
 
         const liveText = content.slice(precondition.span.start, precondition.span.end);
         if (liveText !== precondition.oldText) {
+          staleFiles.add(precondition.file);
           diagnostics.push({
             severity: 'error',
             code: 'stale-content',
@@ -85,7 +114,38 @@ export function checkPlanPreconditions(plan: MovePlan): ApplyDiagnostic[] {
         }
         break;
       }
+
+      case 'content-fingerprint': {
+        const content = readCached(precondition.path);
+        if (content === undefined) break;
+
+        if (sha256(content) !== precondition.sha256) {
+          staleFiles.add(precondition.path);
+          diagnostics.push({
+            severity: 'error',
+            code: 'stale-content',
+            message: `${precondition.path} has changed since planning — its content no longer matches the sealed fingerprint.`,
+            path: precondition.path,
+          });
+        }
+        break;
+      }
     }
+  }
+
+  for (const edit of plan.edits) {
+    if (staleFiles.has(edit.file)) continue;
+    const content = readCached(edit.file);
+    if (content === undefined) continue;
+    const validSpan = edit.span.start >= 0 && edit.span.end >= edit.span.start && edit.span.end <= content.length;
+    if (validSpan && content.slice(edit.span.start, edit.span.end) === edit.oldText) continue;
+    staleFiles.add(edit.file);
+    diagnostics.push({
+      severity: 'error',
+      code: 'stale-content',
+      message: `${edit.file} no longer matches the edit range recorded in the sealed plan.`,
+      path: edit.file,
+    });
   }
 
   return diagnostics;

@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { buildImportGraph } from '../graph/build-import-graph.js';
 import { buildCrossPackageMovePlan } from '../planner/build-cross-package-move-plan.js';
 import { finalizeMovePlan } from '../planner/finalize-move-plan.js';
 import { resolvePackageMembership } from '../planner/resolve-package-membership.js';
+import { collectSealPaths, sealMovePlan } from '../planner/seal-move-plan.js';
 import type { MovePlan, MovePlanDiagnostic } from '../planner/types.js';
 import type { ImportGraph } from '../graph/types.js';
 import { buildWorkspaceDependencyGraph } from '../workspace/build-workspace-dependency-graph.js';
@@ -97,7 +99,7 @@ export function planCrossPackageMove(
 
   const workspaceDependencyGraph = buildWorkspaceDependencyGraph(workspacePackages);
 
-  return buildCrossPackageMovePlan(
+  const plan = buildCrossPackageMovePlan(
     fromFilePath,
     toFilePath,
     { packageName: source.packageName, packageDir: source.packageDir, graph: sourceGraph, exportsField: readPackageExportsField(source.packageDir) },
@@ -105,4 +107,11 @@ export function planCrossPackageMove(
     workspaceDependencyGraph,
     { workspaceWide: options.workspaceGraph !== undefined, workspacePackages },
   );
+
+  if (plan.status !== 'ready') return plan;
+
+  const contents = new Map(
+    [...collectSealPaths(plan)].map((path) => [path, readFileSync(path, 'utf8')] as const),
+  );
+  return sealMovePlan(plan, contents);
 }

@@ -85,7 +85,7 @@ describe('finalizeMovePlan', () => {
     expect(plan.status).toBe('ready');
   });
 
-  it('two plans built from the same moves/edits share the same planHash regardless of diagnostics', () => {
+  it('changes planHash when only diagnostics differ, since the hash covers diagnostics too', () => {
     const build = (diagnostics: Parameters<typeof finalizeMovePlan>[0]['diagnostics']) =>
       finalizeMovePlan({
         operation: 'file',
@@ -98,7 +98,7 @@ describe('finalizeMovePlan', () => {
     const a = build([]);
     const b = build([{ severity: 'warning', code: 'circular-dependency-warning', message: 'x', path: undefined }]);
 
-    expect(a.planHash).toBe(b.planHash);
+    expect(a.planHash).not.toBe(b.planHash);
   });
 });
 
@@ -135,6 +135,6 @@ describe('mergeVerificationDiagnostics', () => {
 
     expect(merged.status).toBe('blocked');
     expect(merged.diagnostics).toHaveLength(1);
-    expect(merged.planHash).toBe(plan.planHash);
+    expect(merged.planHash).not.toBe(plan.planHash);
   });
 });

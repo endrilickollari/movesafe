@@ -38,15 +38,29 @@ function derivePreconditions(
   return preconditions;
 }
 
-function computePlanHash(
+/**
+ * Shared by every place that stamps a `planHash` — `finalizeMovePlan`'s
+ * disk-free draft and `seal-move-plan.ts`'s post-seal recompute — so the two
+ * can never drift into different hash formulas for the same inputs.
+ */
+export function computePlanHash(
   schemaVersion: number,
   operation: MovePlanOperation,
   scope: MovePlanScope,
   moves: readonly FileMove[],
   edits: readonly Edit[],
+  diagnostics: readonly MovePlanDiagnostic[],
   preconditions: readonly MovePlanPrecondition[],
 ): string {
-  const canonical = JSON.stringify({ schemaVersion, operation, scope, moves, edits, preconditions });
+  const canonical = JSON.stringify({
+    schemaVersion,
+    operation,
+    scope,
+    moves,
+    edits,
+    diagnostics,
+    preconditions,
+  });
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }
 
@@ -82,15 +96,23 @@ export function finalizeMovePlan(input: FinalizeMovePlanInput): MovePlan {
     edits,
     diagnostics,
     preconditions,
-    planHash: computePlanHash(MOVE_PLAN_SCHEMA_VERSION, operation, scope, moves, edits, preconditions),
+    planHash: computePlanHash(
+      MOVE_PLAN_SCHEMA_VERSION,
+      operation,
+      scope,
+      moves,
+      edits,
+      diagnostics,
+      preconditions,
+    ),
   };
 }
 
 /**
  * Folds post-move verification diagnostics (always errors) into an
- * already-finalized plan, flipping `status` to `blocked` if any were found.
- * `planHash` is left untouched — it identifies executable plan inputs, not
- * the diagnostics accumulated about them.
+ * already-finalized plan, flipping `status` to `blocked` if any were found
+ * and restamping `planHash` — the hash covers `diagnostics`, so a plan that
+ * gained new ones is a different sealed identity from one that didn't.
  */
 export function mergeVerificationDiagnostics(
   plan: MovePlan,
@@ -98,9 +120,20 @@ export function mergeVerificationDiagnostics(
 ): MovePlan {
   if (verificationDiagnostics.length === 0) return plan;
 
+  const diagnostics = [...plan.diagnostics, ...verificationDiagnostics];
+
   return {
     ...plan,
     status: 'blocked',
-    diagnostics: [...plan.diagnostics, ...verificationDiagnostics],
+    diagnostics,
+    planHash: computePlanHash(
+      plan.schemaVersion,
+      plan.operation,
+      plan.scope,
+      plan.moves,
+      plan.edits,
+      diagnostics,
+      plan.preconditions,
+    ),
   };
 }

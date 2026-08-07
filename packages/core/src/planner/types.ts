@@ -73,7 +73,8 @@ export type MovePlanPrecondition =
       readonly file: string;
       readonly span: SourceOffset;
       readonly oldText: string;
-    };
+    }
+  | { readonly kind: 'content-fingerprint'; readonly path: string; readonly sha256: string };
 
 export interface MovePlan {
   readonly schemaVersion: typeof MOVE_PLAN_SCHEMA_VERSION;

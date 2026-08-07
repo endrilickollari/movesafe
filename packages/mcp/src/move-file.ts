@@ -23,10 +23,12 @@ export interface MoveFileResult {
   readonly error: string | undefined;
   readonly edits: readonly Edit[];
   readonly diagnostics: readonly MoveDiagnostic[];
+  /** Non-empty only when the apply transaction partially failed and rollback itself couldn't fully undo it — every path a human needs to check by hand. */
+  readonly manualRecoveryPaths: readonly string[];
 }
 
 function failure(error: string): MoveFileResult {
-  return { ok: false, applied: false, error, edits: [], diagnostics: [] };
+  return { ok: false, applied: false, error, edits: [], diagnostics: [], manualRecoveryPaths: [] };
 }
 
 export function moveFile(options: MoveFileOptions): MoveFileResult {
@@ -51,19 +53,28 @@ export function moveFile(options: MoveFileOptions): MoveFileResult {
       error: errorDiagnostic?.code === 'tsconfig-not-found' ? errorDiagnostic.message : undefined,
       edits: plan.edits,
       diagnostics: plan.diagnostics,
+      manualRecoveryPaths: [],
     };
   }
 
   if (options.dryRun) {
-    return { ok: true, applied: false, error: undefined, edits: plan.edits, diagnostics: plan.diagnostics };
+    return {
+      ok: true,
+      applied: false,
+      error: undefined,
+      edits: plan.edits,
+      diagnostics: plan.diagnostics,
+      manualRecoveryPaths: [],
+    };
   }
 
   const result = applyMove(plan);
   return {
-    ok: result.applied,
-    applied: result.applied,
+    ok: result.status === 'applied',
+    applied: result.status === 'applied',
     error: undefined,
     edits: plan.edits,
     diagnostics: [...plan.diagnostics, ...result.diagnostics],
+    manualRecoveryPaths: result.manualRecoveryPaths,
   };
 }

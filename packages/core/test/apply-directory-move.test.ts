@@ -12,7 +12,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyMove, buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
+import type { MovePlan } from '../src/advanced.js';
+import {
+  applyMove,
+  buildImportGraph,
+  collectSealPaths,
+  loadTsconfig,
+  planDirectoryMove,
+  sealMovePlan,
+} from '../src/advanced.js';
 
 function fixtureSourcePath(): string {
   return fileURLToPath(new URL('./fixtures/planner/directory-move-project', import.meta.url));
@@ -37,6 +45,13 @@ function findLeftoverTempFiles(dir: string): string[] {
     .filter((entry) => entry.includes('.movesafe.'));
 }
 
+function seal(plan: MovePlan): MovePlan {
+  return sealMovePlan(
+    plan,
+    new Map([...collectSealPaths(plan)].map((path) => [path, readFileSync(path, 'utf8')])),
+  );
+}
+
 describe('applyMove (directory)', () => {
   it('relocates every file, rewrites every affected import, and leaves no temp/backup files', () => {
     const tsconfigPath = join(projectDir, 'tsconfig.json');
@@ -45,10 +60,10 @@ describe('applyMove (directory)', () => {
     const from = join(projectDir, 'src', 'feature');
     const to = join(projectDir, 'src', 'relocated', 'feature');
 
-    const plan = planDirectoryMove(from, to, graph, tsconfig);
+    const plan = seal(planDirectoryMove(from, to, graph, tsconfig));
     const result = applyMove(plan);
 
-    expect(result.applied).toBe(true);
+    expect(result.status).toBe('applied');
     expect(result.diagnostics).toEqual([]);
 
     expect(existsSync(from)).toBe(false);
@@ -90,9 +105,9 @@ describe('applyMove (directory)', () => {
     const tsconfig = loadTsconfig(tsconfigPath);
     const to = join(tempDir, 'relocated-project');
 
-    const result = applyMove(planDirectoryMove(rootProject, to, graph, tsconfig));
+    const result = applyMove(seal(planDirectoryMove(rootProject, to, graph, tsconfig)));
 
-    expect(result.applied).toBe(true);
+    expect(result.status).toBe('applied');
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         severity: 'warning',
@@ -111,7 +126,7 @@ describe('applyMove (directory)', () => {
     const from = join(projectDir, 'src', 'feature');
     const to = join(projectDir, 'src', 'relocated', 'feature');
 
-    const plan = planDirectoryMove(from, to, graph, tsconfig);
+    const plan = seal(planDirectoryMove(from, to, graph, tsconfig));
 
     const externalPath = join(projectDir, 'src', 'external.ts');
     const mutated = readFileSync(externalPath, 'utf8').replace('./feature/a.js', './feature/a-changed.js');
@@ -119,7 +134,7 @@ describe('applyMove (directory)', () => {
 
     const result = applyMove(plan);
 
-    expect(result.applied).toBe(false);
+    expect(result.status).toBe('rejected');
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ severity: 'error', code: 'stale-content' }));
     expect(existsSync(from)).toBe(true);
     expect(existsSync(to)).toBe(false);
@@ -133,7 +148,7 @@ describe('applyMove (directory)', () => {
     const from = join(projectDir, 'src', 'feature');
     const to = join(projectDir, 'src', 'relocated', 'feature');
 
-    const plan = planDirectoryMove(from, to, graph, tsconfig);
+    const plan = seal(planDirectoryMove(from, to, graph, tsconfig));
 
     // Sabotage nested/n.ts's destination: a plain file where its parent
     // directory needs to be created makes mkdirSync throw partway through
@@ -146,7 +161,8 @@ describe('applyMove (directory)', () => {
 
     const result = applyMove(plan);
 
-    expect(result.applied).toBe(false);
+    expect(result.status).toBe('rejected');
+    expect(result.manualRecoveryPaths).toEqual([]);
 
     // Every original file is back (or never moved) and unchanged.
     expect(existsSync(join(projectDir, 'src', 'feature', 'index.ts'))).toBe(true);

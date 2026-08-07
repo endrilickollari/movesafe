@@ -39,7 +39,7 @@ export function runMv(options: RunMvOptions): RunResult {
     }
 
     const result = applyMove(plan);
-    if (!result.applied) {
+    if (result.status !== 'applied') {
       return { exitCode: 1, lines: formatDiagnostics(result.diagnostics, { color: options.color }) };
     }
 

@@ -108,6 +108,14 @@ describe('SDK', () => {
         file: fixturePath('planner', 'basic-project', 'src', 'consumer.ts'),
       }),
     );
+
+    // A `ready` plan out of the SDK is sealed: content-fingerprint
+    // preconditions, not the disk-free draft's edit-anchor/source-exists.
+    expect(plan.status).toBe('ready');
+    expect(plan.preconditions.some((p) => p.kind === 'content-fingerprint')).toBe(true);
+    expect(plan.preconditions.some((p) => p.kind === 'edit-anchor' || p.kind === 'source-exists')).toBe(
+      false,
+    );
   });
 
   it('routes a directory move through the directory planner, verified end-to-end', () => {
@@ -202,7 +210,7 @@ describe('SDK', () => {
       });
       const result = applyMove(plan);
 
-      expect(result.applied).toBe(true);
+      expect(result.status).toBe('applied');
       expect(existsSync(join(cwd, 'packages/a/src/index.ts'))).toBe(false);
       expect(existsSync(join(cwd, 'packages/b/src/moved.ts'))).toBe(true);
       expect(readFileSync(join(cwd, 'packages/b/src/index.ts'), 'utf8')).toContain(

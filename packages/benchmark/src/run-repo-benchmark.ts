@@ -123,7 +123,7 @@ function applyPlannedMove(
     kind,
     from,
     to,
-    applied: result.applied,
+    applied: result.status === 'applied',
     refused: false,
     diagnostics: [...plan.diagnostics, ...result.diagnostics],
   };

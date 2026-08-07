@@ -1,4 +1,4 @@
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { planCrossPackageMove } from '../cross-package/plan-cross-package-move.js';
 import { isPathUnder } from '../planner/directory-path-utils.js';
@@ -6,6 +6,7 @@ import { finalizeMovePlan, mergeVerificationDiagnostics } from '../planner/final
 import { planDirectoryMove } from '../planner/plan-directory-move.js';
 import { planMove as planProjectMove } from '../planner/plan-move.js';
 import { resolvePackageMembership } from '../planner/resolve-package-membership.js';
+import { collectSealPaths, sealMovePlan } from '../planner/seal-move-plan.js';
 import type { MovePlan, MovePlanDiagnostic, MovePlanOperation } from '../planner/types.js';
 import { canonicalPath, isPathInside } from '../path-utils.js';
 import { analyzeProject } from '../project/analyze-project.js';
@@ -154,5 +155,11 @@ export function planMove(options: PlanMoveOptions): MovePlan {
     workspacePackages: context.workspacePackages,
   });
 
-  return mergeVerificationDiagnostics(plan, verificationDiagnostics);
+  const verifiedPlan = mergeVerificationDiagnostics(plan, verificationDiagnostics);
+  if (verifiedPlan.status !== 'ready') return verifiedPlan;
+
+  const contents = new Map(
+    [...collectSealPaths(verifiedPlan)].map((path) => [path, readFileSync(path, 'utf8')] as const),
+  );
+  return sealMovePlan(verifiedPlan, contents);
 }
