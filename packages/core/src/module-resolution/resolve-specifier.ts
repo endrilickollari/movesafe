@@ -19,7 +19,8 @@ export function resolveSpecifier(
     specifier,
     containingFile,
     tsconfig.compilerOptions,
-    ts.sys,
+    options.moduleResolutionHost ?? ts.sys,
+    options.moduleResolutionCache,
   );
 
   if (resolvedModule === undefined) {

@@ -12,17 +12,19 @@ interface JsonReport {
   readonly summary: {
     readonly errorCount: number;
     readonly warningCount: number;
+    readonly infoCount: number;
     readonly total: number;
   };
 }
 
 export function renderJson(findings: readonly Finding[]): string[] {
   const errorCount = findings.filter((f) => f.severity === 'error').length;
-  const warningCount = findings.length - errorCount;
+  const infoCount = findings.filter((f) => f.severity === 'info').length;
+  const warningCount = findings.filter((f) => f.severity === 'warning').length;
 
   const report: JsonReport = {
     findings: findings.map((f) => ({ ...f, path: f.path ?? null })),
-    summary: { errorCount, warningCount, total: findings.length },
+    summary: { errorCount, warningCount, infoCount, total: findings.length },
   };
 
   return [JSON.stringify(report, null, 2)];

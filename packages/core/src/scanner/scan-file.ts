@@ -11,6 +11,12 @@ export function scanFile(filePath: string, sourceText?: string): FileScanResult 
   const text = sourceText ?? readSourceText(filePath);
   const sourceFile = parseSourceFile(filePath, text);
 
+  return scanSourceFile(sourceFile);
+}
+
+export function scanSourceFile(sourceFile: ts.SourceFile): FileScanResult {
+  const filePath = sourceFile.fileName;
+
   const specifiers: ImportSpecifierRecord[] = [];
   const warnings: ScanWarning[] = [];
 

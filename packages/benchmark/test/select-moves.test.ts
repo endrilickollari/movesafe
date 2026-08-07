@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
-import { buildImportGraph, detectWorkspacePackages } from '@movesafe/core';
-import type { ImportGraph } from '@movesafe/core';
+import { buildImportGraph, detectWorkspacePackages } from '@movesafe/core/advanced';
+import type { ImportGraph } from '@movesafe/core/advanced';
 import { describe, expect, it } from 'vitest';
 import { selectMoves } from '../src/select-moves.js';
 

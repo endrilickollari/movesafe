@@ -1,4 +1,5 @@
-import { posix } from 'node:path';
+import { extname, join, relative } from 'node:path';
+import { toModulePath } from '../path-utils.js';
 import type { TsconfigPaths } from '../tsconfig/types.js';
 import { splitSpecifierExtension } from './specifier-extension.js';
 
@@ -9,7 +10,7 @@ export interface MatchedPathsAlias {
 }
 
 function stripRealExtension(filePath: string): string {
-  const ext = posix.extname(filePath);
+  const ext = extname(filePath);
   return ext ? filePath.slice(0, -ext.length) : filePath;
 }
 
@@ -51,7 +52,7 @@ export function matchPathsAlias(
 
     for (const target of targets) {
       const substituted = target.includes('*') ? target.replace('*', capture) : target;
-      const resolvedNoExt = stripRealExtension(posix.join(paths.pathsBaseDir, substituted));
+      const resolvedNoExt = stripRealExtension(join(paths.pathsBaseDir, substituted));
       if (resolvedNoExt === expectedNoExt) {
         candidates.push({ key, target, capture });
       }
@@ -84,9 +85,9 @@ export function computeAliasSpecifier(
   if (keyStarIndex === -1) return undefined;
 
   const targetPrefix = matched.target.slice(0, targetStarIndex);
-  const targetDir = posix.join(paths.pathsBaseDir, targetPrefix);
+  const targetDir = join(paths.pathsBaseDir, targetPrefix);
   const newTargetNoExt = stripRealExtension(newTargetFilePath);
-  const newCapture = posix.relative(targetDir, newTargetNoExt);
+  const newCapture = toModulePath(relative(targetDir, newTargetNoExt));
 
   if (newCapture.startsWith('..')) return undefined;
 

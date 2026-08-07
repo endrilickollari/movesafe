@@ -1,4 +1,4 @@
-export type FindingSeverity = 'error' | 'warning';
+export type FindingSeverity = 'error' | 'warning' | 'info';
 
 export interface Finding {
   readonly severity: FindingSeverity;

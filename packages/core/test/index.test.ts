@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { CORE_VERSION } from '../src/index.js';
+import * as core from '../src/index.js';
+import * as advanced from '../src/advanced.js';
 
 describe('@movesafe/core', () => {
   it('exposes a version placeholder', () => {
-    expect(CORE_VERSION).toBe('0.0.0');
+    expect(core.CORE_VERSION).toBe('0.0.0');
+  });
+
+  it('keeps lower-level APIs behind the advanced entry point', () => {
+    expect(Object.keys(core).sort()).toEqual(['CORE_VERSION', 'applyMove', 'checkImports', 'planMove']);
+    expect(advanced.buildImportGraph).toBeTypeOf('function');
+    expect('buildImportGraph' in core).toBe(false);
   });
 });

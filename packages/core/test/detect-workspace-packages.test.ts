@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectWorkspacePackages, loadTsconfig } from '../src/index.js';
+import { detectWorkspacePackages, loadTsconfig } from '../src/advanced.js';
 import { resolveSpecifier } from '../src/module-resolution/index.js';
 
 function fixturePath(...segments: string[]): string {

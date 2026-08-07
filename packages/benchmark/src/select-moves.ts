@@ -1,5 +1,5 @@
 import { basename, dirname, join, relative } from 'node:path';
-import type { ImportGraph, ImportGraphNode } from '@movesafe/core';
+import type { ImportGraph, ImportGraphNode } from '@movesafe/core/advanced';
 
 export interface MoveCandidate {
   readonly from: string;

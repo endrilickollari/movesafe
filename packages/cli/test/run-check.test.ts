@@ -75,7 +75,7 @@ describe('runCheck', () => {
       const parsed = JSON.parse(result.lines.join('\n'));
 
       expect(result.exitCode).toBe(0);
-      expect(parsed.summary).toEqual({ errorCount: 0, warningCount: 0, total: 0 });
+      expect(parsed.summary).toEqual({ errorCount: 0, warningCount: 0, infoCount: 0, total: 0 });
       expect(parsed.findings).toEqual([]);
     });
 

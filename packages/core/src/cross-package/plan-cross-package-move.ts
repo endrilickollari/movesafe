@@ -3,12 +3,17 @@ import { buildCrossPackageMovePlan } from '../planner/build-cross-package-move-p
 import { computePackageSpecifier } from '../planner/compute-package-specifier.js';
 import { resolvePackageMembership } from '../planner/resolve-package-membership.js';
 import type { MovePlan, MovePlanDiagnostic } from '../planner/types.js';
+import type { ImportGraph } from '../graph/types.js';
 import { buildWorkspaceDependencyGraph } from '../workspace/build-workspace-dependency-graph.js';
 import { findPackageTsconfig } from './find-package-tsconfig.js';
 import { readPackageExportsField } from './read-package-exports-field.js';
 
 function emptyPlan(fromFilePath: string, toFilePath: string, diagnostic: MovePlanDiagnostic): MovePlan {
   return { fromFilePath, toFilePath, edits: [], diagnostics: [diagnostic] };
+}
+
+export interface PlanCrossPackageMoveOptions {
+  readonly workspaceGraph?: ImportGraph;
 }
 
 /**
@@ -22,6 +27,7 @@ export function planCrossPackageMove(
   fromFilePath: string,
   toFilePath: string,
   workspacePackages: ReadonlyMap<string, string>,
+  options: PlanCrossPackageMoveOptions = {},
 ): MovePlan {
   const source = resolvePackageMembership(fromFilePath, workspacePackages);
   if (!source) {
@@ -73,7 +79,9 @@ export function planCrossPackageMove(
   }
 
   const workspacePackagesRecord = Object.fromEntries(workspacePackages);
-  const sourceGraph = buildImportGraph(sourceTsconfigPath, { workspacePackages: workspacePackagesRecord });
+  const sourceGraph =
+    options.workspaceGraph ??
+    buildImportGraph(sourceTsconfigPath, { workspacePackages: workspacePackagesRecord });
   const destGraph = buildImportGraph(destTsconfigPath, { workspacePackages: workspacePackagesRecord });
 
   const sourceSpecifierResult = computePackageSpecifier(
@@ -90,5 +98,6 @@ export function planCrossPackageMove(
     { packageName: source.packageName, packageDir: source.packageDir, graph: sourceGraph, specifierResult: sourceSpecifierResult },
     { packageName: dest.packageName, packageDir: dest.packageDir, graph: destGraph, specifierResult: destSpecifierResult },
     workspaceDependencyGraph,
+    { workspaceWide: options.workspaceGraph !== undefined },
   );
 }

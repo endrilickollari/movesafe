@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import type { Edit } from '@movesafe/core';
-import { applyMove, loadTsconfig, planMove } from '@movesafe/core';
-import { resolveImportGraph } from './resolve-import-graph.js';
+import { applyMove, planMove } from '@movesafe/core';
 
 export interface MoveFileOptions {
   readonly from: string;
@@ -42,16 +41,17 @@ export function moveFile(options: MoveFileOptions): MoveFileResult {
     return failure('Source and destination are the same path.');
   }
 
-  const resolved = resolveImportGraph(dirname(from));
-  if (!resolved) {
-    return failure(`Could not find a tsconfig.json above ${relative(options.cwd, from)}.`);
-  }
+  const plan = planMove({ from, to, cwd: options.cwd });
 
-  const tsconfig = loadTsconfig(resolved.tsconfigPath);
-  const plan = planMove(from, to, resolved.graph, tsconfig);
-
-  if (plan.diagnostics.some((d) => d.severity === 'error')) {
-    return { ok: false, applied: false, error: undefined, edits: plan.edits, diagnostics: plan.diagnostics };
+  const errorDiagnostic = plan.diagnostics.find((diagnostic) => diagnostic.severity === 'error');
+  if (errorDiagnostic) {
+    return {
+      ok: false,
+      applied: false,
+      error: errorDiagnostic.code === 'tsconfig-not-found' ? errorDiagnostic.message : undefined,
+      edits: plan.edits,
+      diagnostics: plan.diagnostics,
+    };
   }
 
   if (options.dryRun) {

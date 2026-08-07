@@ -204,6 +204,18 @@ describe('classifyResolvedModule', () => {
     });
   });
 
+  it('classifies an installed copy with a known workspace package ID as workspace-owned', () => {
+    const resolvedModule = fakeResolvedModule({
+      resolvedFileName: '/repo/node_modules/@movesafe/core/index.d.ts',
+      packageId: { name: '@movesafe/core', subModuleName: 'index.d.ts', version: '0.0.0' },
+    });
+    const workspacePackages = new Map([['@movesafe/core', '/repo/packages/core']]);
+    expect(classifyResolvedModule(resolvedModule, workspacePackages)).toEqual({
+      isWorkspacePackage: true,
+      isExternal: false,
+    });
+  });
+
   it('does not misclassify a same-named external package outside the known workspace directory', () => {
     const resolvedModule = fakeResolvedModule({
       resolvedFileName: '/repo/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/typescript.d.ts',

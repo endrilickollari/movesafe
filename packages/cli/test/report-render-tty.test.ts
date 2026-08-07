@@ -16,6 +16,13 @@ const warningFinding: Finding = {
   path: 'src/legacy.ts',
 };
 
+const infoFinding: Finding = {
+  severity: 'info',
+  code: 'workspace-info',
+  message: 'This is informational.',
+  path: undefined,
+};
+
 describe('renderTty', () => {
   it('reports no issues found for an empty list', () => {
     expect(renderTty([])).toEqual(['✔ No issues found.']);
@@ -33,6 +40,10 @@ describe('renderTty', () => {
   it('does not emit ANSI codes when color is false', () => {
     const [line] = renderTty([errorFinding], { color: false });
     expect(line).not.toContain('\x1b[');
+  });
+
+  it('prefixes informational diagnostics with an info marker', () => {
+    expect(renderTty([infoFinding])[0]).toContain('ℹ');
   });
 
   it('emits ANSI codes when color is true', () => {

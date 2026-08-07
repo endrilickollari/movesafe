@@ -1,11 +1,9 @@
-import { existsSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
-import { applyMove, computePlanDiff, loadTsconfig, planMove, renderPlanDiff } from '@movesafe/core';
+import { relative, resolve } from 'node:path';
+import { applyMove, planMove } from '@movesafe/core';
+import { computePlanDiff, renderPlanDiff } from '@movesafe/core/advanced';
 import { formatDiagnostics } from './format-diagnostics.js';
-import { resolveImportGraph } from './resolve-import-graph.js';
 import { runCatchingErrors } from './run-catching-errors.js';
 import type { BaseRunOptions, RunResult } from './run-result.js';
-import { fail } from './run-result.js';
 
 export interface RunMvOptions extends BaseRunOptions {
   readonly from: string;
@@ -17,22 +15,8 @@ export function runMv(options: RunMvOptions): RunResult {
   const from = resolve(options.cwd, options.from);
   const to = resolve(options.cwd, options.to);
 
-  if (!existsSync(from)) {
-    return fail(`Cannot find file: ${relative(options.cwd, from)}`);
-  }
-
-  if (from === to) {
-    return fail('Source and destination are the same path.');
-  }
-
-  const resolved = resolveImportGraph(dirname(from));
-  if (!resolved) {
-    return fail(`Could not find a tsconfig.json above ${relative(options.cwd, from)}.`);
-  }
-
   return runCatchingErrors(() => {
-    const tsconfig = loadTsconfig(resolved.tsconfigPath);
-    const plan = planMove(from, to, resolved.graph, tsconfig);
+    const plan = planMove({ from, to, cwd: options.cwd });
 
     if (plan.diagnostics.some((d) => d.severity === 'error')) {
       return { exitCode: 1, lines: formatDiagnostics(plan.diagnostics, { color: options.color }) };

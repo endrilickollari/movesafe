@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planCrossPackageMove } from '../src/index.js';
+import { planCrossPackageMove } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/cross-package/${segments.join('/')}`, import.meta.url).pathname;

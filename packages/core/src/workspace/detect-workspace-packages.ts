@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { detectPackageManager } from './detect-package-manager.js';
 import { detectTurborepo } from './detect-turborepo.js';
 import { expandWorkspaceGlobs } from './expand-workspace-globs.js';
@@ -5,7 +6,7 @@ import { readWorkspacePackageName } from './read-workspace-package-name.js';
 import type { DetectWorkspacePackagesResult, WorkspaceDiagnostic } from './types.js';
 
 export function detectWorkspacePackages(rootDir: string): DetectWorkspacePackagesResult {
-  const normalizedRootDir = rootDir.replace(/\\/g, '/').replace(/\/$/, '');
+  const normalizedRootDir = resolve(rootDir);
 
   const { packageManager, patterns, diagnostics: managerDiagnostics } =
     detectPackageManager(normalizedRootDir);

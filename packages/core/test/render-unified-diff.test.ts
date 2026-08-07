@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PlanDiff } from '../src/index.js';
-import { renderPlanDiff } from '../src/index.js';
+import type { PlanDiff } from '../src/advanced.js';
+import { renderPlanDiff } from '../src/advanced.js';
 
 describe('renderPlanDiff', () => {
   const diff: PlanDiff = {

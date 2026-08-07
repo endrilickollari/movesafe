@@ -5,4 +5,4 @@ export type {
   ScanWarning,
   ScanWarningKind,
 } from './types.js';
-export { scanFile } from './scan-file.js';
+export { scanFile, scanSourceFile } from './scan-file.js';

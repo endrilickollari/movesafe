@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportGraph } from '../src/index.js';
+import { buildImportGraph } from '../src/advanced.js';
 import { checkUnresolvedImports } from '../src/check/check-unresolved-imports.js';
 
 function fixturePath(...segments: string[]): string {

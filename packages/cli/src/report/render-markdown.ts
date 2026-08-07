@@ -21,6 +21,7 @@ export function renderMarkdown(findings: readonly Finding[]): string[] {
 
   const errors = findings.filter((f) => f.severity === 'error');
   const warnings = findings.filter((f) => f.severity === 'warning');
+  const info = findings.filter((f) => f.severity === 'info');
 
   const summaryParts: string[] = [];
   if (errors.length > 0) {
@@ -29,10 +30,14 @@ export function renderMarkdown(findings: readonly Finding[]): string[] {
   if (warnings.length > 0) {
     summaryParts.push(`⚠️ **${warnings.length} warning${warnings.length === 1 ? '' : 's'}**`);
   }
+  if (info.length > 0) {
+    summaryParts.push(`ℹ️ **${info.length} info**`);
+  }
 
   lines.push('', summaryParts.join(', '));
   lines.push(...renderSection('Errors', errors));
   lines.push(...renderSection('Warnings', warnings));
+  lines.push(...renderSection('Information', info));
 
   return [lines.join('\n')];
 }

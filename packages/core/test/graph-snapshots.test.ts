@@ -1,6 +1,6 @@
 import { sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildImportGraph, detectWorkspacePackages } from '../src/index.js';
+import { buildImportGraph, detectWorkspacePackages } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;

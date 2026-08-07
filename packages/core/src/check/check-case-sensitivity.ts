@@ -1,10 +1,10 @@
 import { readdirSync } from 'node:fs';
-import { posix } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import type { ImportGraph } from '../graph/types.js';
 import type { CheckFinding } from './types.js';
 
 function stripExt(name: string): string {
-  const ext = posix.extname(name);
+  const ext = extname(name);
   return ext ? name.slice(0, -ext.length) : name;
 }
 
@@ -53,13 +53,13 @@ export function checkCaseSensitivity(graph: ImportGraph): CheckFinding[] {
     const segments = edge.specifier.split('/').filter((s) => s !== '.' && s !== '');
     if (segments.length === 0) continue;
 
-    let currentDir = posix.dirname(edge.fromFilePath);
+    let currentDir = dirname(edge.fromFilePath);
     let mismatch: string | undefined;
 
     for (let i = 0; i < segments.length - 1; i++) {
       const segment = segments[i]!;
       if (segment === '..') {
-        currentDir = posix.dirname(currentDir);
+        currentDir = dirname(currentDir);
         continue;
       }
 
@@ -70,7 +70,7 @@ export function checkCaseSensitivity(graph: ImportGraph): CheckFinding[] {
         mismatch = realEntry;
         break;
       }
-      currentDir = posix.join(currentDir, realEntry);
+      currentDir = join(currentDir, realEntry);
     }
 
     if (mismatch === undefined) {

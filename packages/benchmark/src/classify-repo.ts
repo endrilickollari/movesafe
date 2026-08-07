@@ -1,4 +1,4 @@
-import type { LoadedTsconfig } from '@movesafe/core';
+import type { LoadedTsconfig } from '@movesafe/core/advanced';
 
 export type RepoCategory = 'plain' | 'aliased' | 'monorepo';
 

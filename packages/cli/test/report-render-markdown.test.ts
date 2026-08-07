@@ -16,6 +16,13 @@ const warningFinding: Finding = {
   path: undefined,
 };
 
+const infoFinding: Finding = {
+  severity: 'info',
+  code: 'workspace-info',
+  message: 'This is informational.',
+  path: undefined,
+};
+
 describe('renderMarkdown', () => {
   it('reports no issues found for an empty list, with no section headers', () => {
     const [output] = renderMarkdown([]);
@@ -27,12 +34,14 @@ describe('renderMarkdown', () => {
   });
 
   it('groups findings under Errors and Warnings sections', () => {
-    const [output] = renderMarkdown([errorFinding, warningFinding]);
+    const [output] = renderMarkdown([errorFinding, warningFinding, infoFinding]);
 
     expect(output).toContain('**Errors**');
     expect(output).toContain('**Warnings**');
+    expect(output).toContain('**Information**');
     expect(output).toContain('1 error');
     expect(output).toContain('1 warning');
+    expect(output).toContain('1 info');
     expect(output).toContain(`\`${errorFinding.path}\`: ${errorFinding.message}`);
   });
 

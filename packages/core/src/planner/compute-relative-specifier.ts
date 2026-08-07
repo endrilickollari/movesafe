@@ -1,8 +1,9 @@
-import { posix } from 'node:path';
+import { dirname, extname, relative } from 'node:path';
+import { toModulePath } from '../path-utils.js';
 import { splitSpecifierExtension } from './specifier-extension.js';
 
 function stripRealExtension(filePath: string): string {
-  const ext = posix.extname(filePath);
+  const ext = extname(filePath);
   return ext ? filePath.slice(0, -ext.length) : filePath;
 }
 
@@ -18,9 +19,9 @@ export function computeRelativeSpecifier(
   newTargetFilePath: string,
   oldSpecifierText: string,
 ): string {
-  const importerDir = posix.dirname(importerFilePath);
+  const importerDir = dirname(importerFilePath);
   const targetNoExt = stripRealExtension(newTargetFilePath);
-  let relativeNoExt = posix.relative(importerDir, targetNoExt);
+  let relativeNoExt = toModulePath(relative(importerDir, targetNoExt));
   if (!relativeNoExt.startsWith('.')) {
     relativeNoExt = `./${relativeNoExt}`;
   }

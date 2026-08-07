@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { CheckFinding, ImportGraph, LoadedTsconfig } from '@movesafe/core';
+import type { CheckFinding, ImportGraph, LoadedTsconfig } from '@movesafe/core/advanced';
 import {
   applyDirectoryMove,
   applyMove,
@@ -8,9 +8,9 @@ import {
   loadTsconfig,
   planCrossPackageMove,
   planDirectoryMove,
-  planMove,
+  planProjectMove,
   runCheck,
-} from '@movesafe/core';
+} from '@movesafe/core/advanced';
 import { classifyRepo } from './classify-repo.js';
 import { cloneOrReset } from './clone-or-reset.js';
 import { installDependencies } from './detect-install.js';
@@ -91,7 +91,7 @@ function applySingleFileOrCrossPackage(
   const plan =
     kind === 'crossPackage'
       ? planCrossPackageMove(from, to, ctx.workspacePackages)
-      : planMove(from, to, ctx.graph, ctx.tsconfig);
+      : planProjectMove(from, to, ctx.graph, ctx.tsconfig);
 
   if (plan.diagnostics.some((d) => d.severity === 'error')) {
     return { kind, from, to, applied: false, refused: true, diagnostics: plan.diagnostics };

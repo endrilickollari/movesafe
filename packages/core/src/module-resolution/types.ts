@@ -1,3 +1,5 @@
+import type * as ts from 'typescript';
+
 export type ResolvedSpecifierKind = 'resolved' | 'external' | 'unresolved';
 
 export interface ResolveSpecifierWarning {
@@ -54,4 +56,6 @@ export interface ResolveSpecifierOptions {
    * `isExternalLibraryImport` result then classifies as `'external'`.
    */
   readonly workspacePackages?: ReadonlyMap<string, string>;
+  readonly moduleResolutionHost?: ts.ModuleResolutionHost;
+  readonly moduleResolutionCache?: ts.ModuleResolutionCache;
 }

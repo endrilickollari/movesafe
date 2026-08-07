@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 export interface WorkspacePackageEntry {
   readonly name: string;
@@ -25,8 +26,5 @@ export function readWorkspacePackageName(packageJsonPath: string): ReadWorkspace
     return { ok: false, reason: 'missing-name' };
   }
 
-  const lastSlash = packageJsonPath.lastIndexOf('/');
-  const directory = lastSlash === -1 ? packageJsonPath : packageJsonPath.slice(0, lastSlash);
-
-  return { ok: true, entry: { name, directory } };
+  return { ok: true, entry: { name, directory: dirname(packageJsonPath) } };
 }

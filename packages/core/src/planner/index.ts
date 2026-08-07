@@ -6,5 +6,5 @@ export type {
   MovePlanDiagnostic,
   MovePlanDiagnosticCode,
 } from './types.js';
-export { planMove } from './plan-move.js';
+export { planMove as planProjectMove } from './plan-move.js';
 export { planDirectoryMove } from './plan-directory-move.js';

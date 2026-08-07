@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyDirectoryMove, buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/index.js';
+import { applyDirectoryMove, buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
 
 function fixtureSourcePath(): string {
   return fileURLToPath(new URL('./fixtures/planner/directory-move-project', import.meta.url));

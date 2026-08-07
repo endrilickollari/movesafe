@@ -1,6 +1,8 @@
+import type * as ts from 'typescript';
 import { resolveSpecifier } from '../module-resolution/index.js';
-import { scanFile } from '../scanner/index.js';
+import { scanFile, scanSourceFile } from '../scanner/index.js';
 import { loadTsconfig } from '../tsconfig/index.js';
+import type { LoadedTsconfig } from '../tsconfig/types.js';
 import { classifyEdgeTarget } from './classify-edge-target.js';
 import { discoverProjectFiles } from './discover-project-files.js';
 import type { BuildImportGraphOptions, GraphWarning, ImportGraph, ImportGraphEdge } from './types.js';
@@ -10,6 +12,20 @@ export function buildImportGraph(
   options: BuildImportGraphOptions = {},
 ): ImportGraph {
   const tsconfig = loadTsconfig(configFilePath);
+  return buildImportGraphFromTsconfig(tsconfig, options);
+}
+
+export interface BuildImportGraphRuntime {
+  readonly program?: ts.Program;
+  readonly moduleResolutionHost?: ts.ModuleResolutionHost;
+  readonly moduleResolutionCache?: ts.ModuleResolutionCache;
+}
+
+export function buildImportGraphFromTsconfig(
+  tsconfig: LoadedTsconfig,
+  options: BuildImportGraphOptions = {},
+  runtime: BuildImportGraphRuntime = {},
+): ImportGraph {
   const warnings: GraphWarning[] = tsconfig.diagnostics.map((diagnostic) => ({
     source: 'tsconfig',
     diagnostic,
@@ -27,7 +43,8 @@ export function buildImportGraph(
   const edges: ImportGraphEdge[] = [];
 
   for (const filePath of sourceFiles) {
-    const scanResult = scanFile(filePath);
+    const sourceFile = runtime.program?.getSourceFile(filePath);
+    const scanResult = sourceFile ? scanSourceFile(sourceFile) : scanFile(filePath);
     for (const warning of scanResult.warnings) {
       warnings.push({ source: 'scanner', filePath, warning });
     }
@@ -37,7 +54,11 @@ export function buildImportGraph(
         specifierRecord.moduleText,
         filePath,
         tsconfig,
-        { workspacePackages },
+        {
+          workspacePackages,
+          moduleResolutionHost: runtime.moduleResolutionHost,
+          moduleResolutionCache: runtime.moduleResolutionCache,
+        },
       );
       for (const warning of resolveWarnings) {
         warnings.push({ source: 'resolver', warning });
@@ -57,5 +78,5 @@ export function buildImportGraph(
     }
   }
 
-  return { configFilePath, nodes, edges, warnings };
+  return { configFilePath: tsconfig.configFilePath, nodes, edges, warnings };
 }

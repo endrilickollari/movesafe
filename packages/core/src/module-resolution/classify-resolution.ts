@@ -5,12 +5,6 @@ export interface ResolvedModuleClassification {
   readonly isExternal: boolean;
 }
 
-/** TS normalizes resolved paths to forward slashes regardless of platform. */
-function isUnderDirectory(filePath: string, dirPath: string): boolean {
-  const normalizedDir = dirPath.endsWith('/') ? dirPath : `${dirPath}/`;
-  return filePath === dirPath || filePath.startsWith(normalizedDir);
-}
-
 export function classifyResolvedModule(
   resolvedModule: ts.ResolvedModuleFull,
   workspacePackages: ReadonlyMap<string, string> | undefined,
@@ -20,9 +14,9 @@ export function classifyResolvedModule(
   }
 
   const packageName = resolvedModule.packageId?.name;
-  const workspaceDir = packageName ? workspacePackages?.get(packageName) : undefined;
+  const isWorkspacePackage = packageName ? workspacePackages?.has(packageName) === true : false;
 
-  if (workspaceDir && isUnderDirectory(resolvedModule.resolvedFileName, workspaceDir)) {
+  if (isWorkspacePackage) {
     return { isWorkspacePackage: true, isExternal: false };
   }
 

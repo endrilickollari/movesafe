@@ -38,6 +38,7 @@ export function buildCrossPackageMovePlan(
   source: CrossPackageMoveSide,
   dest: CrossPackageMoveSide,
   workspaceDependencyGraph: ReadonlyMap<string, Set<string>>,
+  options: { readonly workspaceWide?: boolean } = {},
 ): MovePlan {
   const diagnostics: MovePlanDiagnostic[] = validateCrossPackageMove(
     fromFilePath,
@@ -54,7 +55,15 @@ export function buildCrossPackageMovePlan(
 
   const edits: Edit[] = [];
 
-  const inbound = collectCrossPackageInboundEdits(fromFilePath, source.graph, dest.packageName, dest.specifierResult);
+  const inbound = collectCrossPackageInboundEdits(
+    fromFilePath,
+    toFilePath,
+    source.graph,
+    dest.packageName,
+    dest.packageDir,
+    dest.specifierResult,
+    options.workspaceWide === true,
+  );
   edits.push(...inbound.edits);
   diagnostics.push(...inbound.diagnostics);
 
@@ -78,7 +87,7 @@ export function buildCrossPackageMovePlan(
     });
   }
 
-  const dependents = dependentsOf(workspaceDependencyGraph, source.packageName);
+  const dependents = options.workspaceWide ? [] : dependentsOf(workspaceDependencyGraph, source.packageName);
   if (dependents.length > 0) {
     diagnostics.push({
       severity: 'warning',

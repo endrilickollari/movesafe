@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportGraph, runCheck } from '../src/index.js';
+import { buildImportGraph, runCheck } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;

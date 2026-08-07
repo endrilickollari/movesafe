@@ -1,4 +1,4 @@
-import { posix } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { ImportGraph } from '../graph/types.js';
 import type { ImportFormKind } from '../scanner/types.js';
 import type { MovePlanDiagnostic } from './types.js';
@@ -23,11 +23,11 @@ export function detectBarrelRelocation(
   toFilePath: string,
   graph: ImportGraph,
 ): MovePlanDiagnostic[] {
-  const sourceDir = posix.dirname(fromFilePath);
-  const destDir = posix.dirname(toFilePath);
+  const sourceDir = dirname(fromFilePath);
+  const destDir = dirname(toFilePath);
   if (sourceDir === destDir) return [];
 
-  const destBarrelPath = posix.join(destDir, 'index.ts');
+  const destBarrelPath = join(destDir, 'index.ts');
   const destHasBarrel = graph.nodes.some((node) => node.filePath === destBarrelPath);
   if (!destHasBarrel) return [];
 
@@ -36,8 +36,8 @@ export function detectBarrelRelocation(
   for (const edge of graph.edges) {
     if (edge.target.kind !== 'inProject' || edge.target.filePath !== fromFilePath) continue;
     if (!REEXPORT_FORM_KINDS.has(edge.formKind)) continue;
-    if (posix.basename(edge.fromFilePath) !== 'index.ts') continue;
-    if (posix.dirname(edge.fromFilePath) !== sourceDir) continue;
+    if (basename(edge.fromFilePath) !== 'index.ts') continue;
+    if (dirname(edge.fromFilePath) !== sourceDir) continue;
 
     const mayBeAliased = edge.formKind !== 'exportStar';
     diagnostics.push({

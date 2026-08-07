@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectDependencyCycle } from '../src/index.js';
+import { detectDependencyCycle } from '../src/advanced.js';
 
 describe('detectDependencyCycle', () => {
   it('returns undefined when there is no path back to the source', () => {

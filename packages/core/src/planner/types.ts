@@ -11,6 +11,8 @@ export interface Edit {
 }
 
 export type MovePlanDiagnosticCode =
+  | 'source-file-missing'
+  | 'tsconfig-not-found'
   | 'source-not-in-graph'
   | 'source-equals-destination'
   | 'destination-collides-with-existing-file'

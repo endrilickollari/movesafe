@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportGraph, computePlanDiff, loadTsconfig, planMove } from '../src/index.js';
+import { buildImportGraph, computePlanDiff, loadTsconfig } from '../src/advanced.js';
+import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
   return new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url).pathname;
