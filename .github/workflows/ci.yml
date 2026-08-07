@@ -27,7 +27,7 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
-      - run: pnpm turbo run lint test
+      - run: pnpm turbo run lint test --concurrency=2
 
   self-test:
     runs-on: ubuntu-latest
