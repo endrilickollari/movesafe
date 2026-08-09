@@ -1,15 +1,8 @@
 import { join } from 'node:path';
-import type { CheckFinding, ImportGraph, LoadedTsconfig } from '@movesafe/core/advanced';
-import {
-  applyMove,
-  buildImportGraph,
-  detectWorkspacePackages,
-  loadTsconfig,
-  planCrossPackageMove,
-  planDirectoryMove,
-  planProjectMove,
-  runCheck,
-} from '@movesafe/core/advanced';
+import type { CheckFinding, SdkDiagnostic } from '@movesafe/core';
+import { applyMove, checkImports, planMove } from '@movesafe/core';
+import type { ImportGraph, LoadedTsconfig } from '@movesafe/core/advanced';
+import { buildImportGraph, detectWorkspacePackages, loadTsconfig } from '@movesafe/core/advanced';
 import { classifyRepo } from './classify-repo.js';
 import { cloneOrReset } from './clone-or-reset.js';
 import { installDependencies } from './detect-install.js';
@@ -38,7 +31,7 @@ export interface RepoResult {
   readonly category: 'plain' | 'aliased' | 'monorepo' | undefined;
   readonly moves: readonly MoveOutcome[];
   readonly checkClean: boolean | undefined;
-  readonly checkFindings: readonly CheckFinding[];
+  readonly checkFindings: readonly (CheckFinding | SdkDiagnostic)[];
   /** `tsc --noEmit` error count before any moves — many real repos have pre-existing errors unrelated to movesafe. */
   readonly tscBaselineErrorCount: number | undefined;
   readonly tscFinalErrorCount: number | undefined;
@@ -97,22 +90,17 @@ function resolvePrimaryProject(
   return undefined;
 }
 
-function applyPlannedMove(
-  kind: MoveKind,
-  from: string,
-  to: string,
-  ctx: {
-    readonly graph: ImportGraph;
-    readonly tsconfig: LoadedTsconfig;
-    readonly workspacePackages: ReadonlyMap<string, string>;
-  },
-): MoveOutcome {
-  const plan =
-    kind === 'crossPackage'
-      ? planCrossPackageMove(from, to, ctx.workspacePackages)
-      : kind === 'directory'
-        ? planDirectoryMove(from, to, ctx.graph, ctx.tsconfig)
-        : planProjectMove(from, to, ctx.graph, ctx.tsconfig);
+/**
+ * Plans and applies through the public SDK's dispatcher (`planMove`), the
+ * same entry point the CLI and MCP server use — so the benchmark exercises
+ * what actually ships, including plan sealing, instead of calling the
+ * unsealed advanced-level builders directly (which `applyMove` now refuses).
+ * `kind` is only a label for `MoveOutcome`, driven by which candidate
+ * `selectMoves` chose — the dispatcher redetects file/directory/cross-package
+ * on its own from `from`/`to`.
+ */
+function applyPlannedMove(kind: MoveKind, from: string, to: string, cwd: string): MoveOutcome {
+  const plan = planMove({ from, to, cwd });
 
   if (plan.status === 'blocked') {
     return { kind, from, to, applied: false, refused: true, diagnostics: plan.diagnostics };
@@ -184,40 +172,22 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
     const moves: MoveOutcome[] = [];
 
     if (selected.singleFile) {
-      moves.push(
-        applyPlannedMove('singleFile', selected.singleFile.from, selected.singleFile.to, {
-          graph,
-          tsconfig,
-          workspacePackages,
-        }),
-      );
+      moves.push(applyPlannedMove('singleFile', selected.singleFile.from, selected.singleFile.to, destDir));
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.directory) {
-      moves.push(
-        applyPlannedMove('directory', selected.directory.from, selected.directory.to, {
-          graph,
-          tsconfig,
-          workspacePackages,
-        }),
-      );
+      moves.push(applyPlannedMove('directory', selected.directory.from, selected.directory.to, destDir));
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.crossPackage) {
-      moves.push(
-        applyPlannedMove('crossPackage', selected.crossPackage.from, selected.crossPackage.to, {
-          graph,
-          tsconfig,
-          workspacePackages,
-        }),
-      );
+      moves.push(applyPlannedMove('crossPackage', selected.crossPackage.from, selected.crossPackage.to, destDir));
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
-    const checkResult = runCheck(graph);
-    const checkClean = !checkResult.findings.some((f) => f.severity === 'error');
+    const checkResult = checkImports({ path: destDir, cwd: destDir });
+    const checkClean = checkResult.clean;
 
     const finalTsc = runTsc(destDir);
 
@@ -226,7 +196,7 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
       category,
       moves,
       checkClean,
-      checkFindings: checkResult.findings,
+      checkFindings: [...checkResult.findings, ...checkResult.diagnostics],
       tscBaselineErrorCount: baselineTsc.errorCount,
       tscFinalErrorCount: finalTsc.errorCount,
       tscOutput: finalTsc.output,

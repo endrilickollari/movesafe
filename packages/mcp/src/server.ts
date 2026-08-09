@@ -1,11 +1,22 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import type { ApplyMoveResult } from './apply-move.js';
+import { applyMoveTool } from './apply-move.js';
 import { checkImports } from './check-imports.js';
-import { moveFile } from './move-file.js';
+import type { PlanMoveResult } from './plan-move.js';
+import { planMoveTool } from './plan-move.js';
+import { applyMoveOutputSchema, checkImportsOutputSchema, planMoveOutputSchema } from './schemas.js';
 
-function jsonResult(value: unknown, isError: boolean): CallToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], isError };
+/**
+ * Every normal return is a successful tool call — `isError` stays `false`
+ * even for a blocked plan, a rejected apply, or a checker that found
+ * problems: those are domain outcomes carried in `structuredContent`, not
+ * MCP-protocol failures. `isError: true` is reserved for `toolError` below,
+ * the only path that fires on a thrown exception.
+ */
+function structuredResult(structuredContent: object, text: string): CallToolResult {
+  return { content: [{ type: 'text', text }], structuredContent, isError: false };
 }
 
 function toolError(error: unknown): CallToolResult {
@@ -13,24 +24,70 @@ function toolError(error: unknown): CallToolResult {
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
+function summarizePlan(plan: PlanMoveResult): string {
+  if (plan.status === 'blocked') {
+    const errorCount = plan.diagnostics.filter((d) => d.severity === 'error').length;
+    return `Plan blocked: ${errorCount} error(s).`;
+  }
+  const fileCount = new Set(plan.diff.files.map((file) => file.newPath)).size;
+  return `Plan ready: ${plan.edits.length} edit(s) across ${fileCount} file(s). Hash ${plan.planHash}.`;
+}
+
+function summarizeApply(result: ApplyMoveResult): string {
+  switch (result.status) {
+    case 'applied':
+      return 'Applied.';
+    case 'hash-mismatch':
+      return 'Rejected: plan hash mismatch — call plan_move again and apply the new hash.';
+    case 'partial':
+      return `Partial: ${result.manualRecoveryPaths.length} path(s) need manual recovery.`;
+    case 'rejected':
+      return `Rejected: ${result.diagnostics.find((d) => d.severity === 'error')?.message ?? 'plan failed validation.'}`;
+  }
+}
+
 export function createServer(): McpServer {
   const server = new McpServer({ name: 'movesafe', version: '0.0.0' });
 
   server.registerTool(
-    'move_file',
+    'plan_move',
     {
-      title: 'Move a TypeScript file',
-      description: 'Moves a TypeScript file, rewriting every import that references it. With dryRun, returns the plan without touching disk.',
+      title: 'Plan a move',
+      description:
+        'Plans moving a TypeScript file, directory, or cross-package file, rewriting every import that references it. Read-only — never touches disk. Returns a planHash to pass to apply_move.',
       inputSchema: {
-        from: z.string().describe('Path to the file to move'),
+        from: z.string().describe('Path to the file or directory to move'),
         to: z.string().describe('Destination path'),
-        dryRun: z.boolean().describe('If true, return the plan without applying it'),
       },
+      outputSchema: planMoveOutputSchema,
     },
-    ({ from, to, dryRun }) => {
+    ({ from, to }) => {
       try {
-        const result = moveFile({ from, to, dryRun, cwd: process.cwd() });
-        return jsonResult(result, !result.ok);
+        const result = planMoveTool({ from, to, cwd: process.cwd() });
+        return structuredResult(result, summarizePlan(result));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'apply_move',
+    {
+      title: 'Apply a planned move',
+      description:
+        'Applies the move planned by plan_move. Recomputes the plan from current disk state and refuses (hash-mismatch) if it no longer matches the supplied planHash — never applies a plan different from the one reviewed.',
+      inputSchema: {
+        from: z.string().describe('Path to the file or directory to move'),
+        to: z.string().describe('Destination path'),
+        planHash: z.string().describe('The planHash returned by plan_move for this exact move'),
+      },
+      outputSchema: applyMoveOutputSchema,
+    },
+    ({ from, to, planHash }) => {
+      try {
+        const result = applyMoveTool({ from, to, planHash, cwd: process.cwd() });
+        return structuredResult(result, summarizeApply(result));
       } catch (error) {
         return toolError(error);
       }
@@ -45,11 +102,15 @@ export function createServer(): McpServer {
       inputSchema: {
         path: z.string().optional().describe('Directory to check (defaults to the current directory)'),
       },
+      outputSchema: checkImportsOutputSchema,
     },
     ({ path }) => {
       try {
         const result = checkImports({ path, cwd: process.cwd() });
-        return jsonResult(result, !result.ok);
+        const text = result.ok
+          ? 'Clean.'
+          : `${result.summary.errorCount} error(s), ${result.summary.warningCount} warning(s).`;
+        return structuredResult(result, text);
       } catch (error) {
         return toolError(error);
       }
