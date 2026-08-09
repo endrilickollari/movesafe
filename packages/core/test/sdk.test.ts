@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { applyMove, checkImports, planMove } from '../src/index.js';
@@ -48,15 +48,12 @@ describe('workspace analysis', () => {
   it('retains module-resolution diagnostics from declaration files', () => {
     const config = fixturePath('graph', 'declaration-diagnostic', 'tsconfig.json');
     const analysis = analyzeProject(config);
+    const diagnostics = analysis.getModuleResolutionDiagnostics();
 
-    expect(analysis.getModuleResolutionDiagnostics()).toEqual([
-      expect.objectContaining({
-        code: 2307,
-        file: expect.objectContaining({
-          fileName: fixturePath('graph', 'declaration-diagnostic', 'src', 'types.d.ts'),
-        }),
-      }),
-    ]);
+    expect(diagnostics).toEqual([expect.objectContaining({ code: 2307 })]);
+    expect(normalize(diagnostics[0]!.file!.fileName)).toBe(
+      fixturePath('graph', 'declaration-diagnostic', 'src', 'types.d.ts'),
+    );
   });
 
   it('aggregates cross-package edges into the workspace inbound index', () => {

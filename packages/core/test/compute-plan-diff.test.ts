@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, computePlanDiff, loadTsconfig } from '../src/advanced.js';
+import { buildLineOffsets, sliceLine } from '../src/diff/line-offsets.js';
 import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
@@ -8,6 +9,15 @@ function fixturePath(...segments: string[]): string {
 }
 
 describe('computePlanDiff', () => {
+  it('strips CRLF line endings from rendered line content', () => {
+    const text = 'first\r\nsecond\r\n';
+    const offsets = buildLineOffsets(text);
+
+    expect(offsets).toEqual([0, 7]);
+    expect(sliceLine(text, offsets, 0)).toBe('first');
+    expect(sliceLine(text, offsets, 1)).toBe('second');
+  });
+
   it('produces a pure-rename entry with no hunks for a moved file with no outbound imports of its own', () => {
     const graph = buildImportGraph(fixturePath('basic-project', 'tsconfig.json'));
     const tsconfig = loadTsconfig(fixturePath('basic-project', 'tsconfig.json'));

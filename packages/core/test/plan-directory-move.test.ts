@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
@@ -86,11 +87,11 @@ describe('planDirectoryMove', () => {
     const project = fileURLToPath(
       new URL('./fixtures/planner/directory-unrecomputable-project/', import.meta.url),
     );
-    const unsafeGraph = buildImportGraph(`${project}tsconfig.json`);
-    const unsafeTsconfig = loadTsconfig(`${project}tsconfig.json`);
+    const unsafeGraph = buildImportGraph(join(project, 'tsconfig.json'));
+    const unsafeTsconfig = loadTsconfig(join(project, 'tsconfig.json'));
     const plan = planDirectoryMove(
-      `${project}src/feature`,
-      `${project}src/relocated/feature`,
+      join(project, 'src', 'feature'),
+      join(project, 'src', 'relocated', 'feature'),
       unsafeGraph,
       unsafeTsconfig,
     );
@@ -99,11 +100,11 @@ describe('planDirectoryMove', () => {
       expect.objectContaining({
         severity: 'error',
         code: 'unrecomputable-specifier',
-        path: `${project}src/consumer.ts`,
+        path: join(project, 'src', 'consumer.ts'),
       }),
     );
     expect(plan.status).toBe('blocked');
-    expect(plan.edits.some((e) => e.file === `${project}src/consumer.ts`)).toBe(false);
+    expect(plan.edits.some((e) => e.file === join(project, 'src', 'consumer.ts'))).toBe(false);
   });
 
   it('produces no edit for two co-moving files that reference each other by a relative specifier', () => {

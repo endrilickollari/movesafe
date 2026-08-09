@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { toFileSystemPath } from '../path-utils.js';
 import type { WorkspaceDiagnostic } from './types.js';
 
 export interface ExpandedWorkspaceGlobs {
@@ -27,7 +28,7 @@ export function expandWorkspaceGlobs(
       continue;
     }
 
-    for (const match of matches) packageJsonPaths.add(match);
+    for (const match of matches) packageJsonPaths.add(toFileSystemPath(match));
   }
 
   return { packageJsonPaths: [...packageJsonPaths], diagnostics };

@@ -28,10 +28,12 @@ export function lineIndexAt(offsets: readonly number[], charOffset: number): num
   return lo;
 }
 
-/** Line content at `lineIndex`, with its own trailing '\n' stripped if present. */
+/** Line content at `lineIndex`, with its own trailing line ending stripped if present. */
 export function sliceLine(text: string, offsets: readonly number[], lineIndex: number): string {
   const start = offsets[lineIndex];
   const end = lineIndex + 1 < offsets.length ? offsets[lineIndex + 1] : text.length;
   const line = text.slice(start, end);
-  return line.endsWith('\n') ? line.slice(0, -1) : line;
+  if (line.endsWith('\r\n')) return line.slice(0, -2);
+  if (line.endsWith('\n')) return line.slice(0, -1);
+  return line;
 }
