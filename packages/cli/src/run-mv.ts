@@ -1,4 +1,4 @@
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import { applyMove, planMove } from '@movesafe/core';
 import { computePlanDiff, renderPlanDiff } from '@movesafe/core/advanced';
 import { formatDiagnostics } from './format-diagnostics.js';
@@ -27,8 +27,8 @@ export function runMv(options: RunMvOptions): RunResult {
       const relativized = {
         files: diff.files.map((file) => ({
           ...file,
-          oldPath: relative(options.cwd, file.oldPath),
-          newPath: relative(options.cwd, file.newPath),
+          oldPath: relative(options.cwd, file.oldPath).replaceAll(sep, '/'),
+          newPath: relative(options.cwd, file.newPath).replaceAll(sep, '/'),
         })),
       };
       const lines = [

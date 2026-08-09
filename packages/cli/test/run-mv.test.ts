@@ -35,9 +35,12 @@ describe('runMv', () => {
     const beforeUtils = readFileSync(from, 'utf8');
 
     const result = runMv({ from, to, dryRun: true, color: false, cwd: projectDir });
+    const output = result.lines.join('\n');
 
     expect(result.exitCode).toBe(0);
-    expect(result.lines.join('\n')).toContain("./renamed.js");
+    expect(output).toContain('--- a/src/index.ts');
+    expect(output).toContain('src/utils.ts -> src/renamed.ts');
+    expect(output).toContain('./renamed.js');
     expect(existsSync(from)).toBe(true);
     expect(existsSync(to)).toBe(false);
     expect(readFileSync(indexPath, 'utf8')).toBe(beforeIndex);
