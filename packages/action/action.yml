@@ -19,11 +19,11 @@ runs:
       shell: bash
       run: echo "MOVESAFE_ROOT=$(cd "${{ github.action_path }}/../.." && pwd)" >> "$GITHUB_ENV"
 
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@v6
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
-        node-version: 20
+        node-version: 24
         cache: pnpm
         cache-dependency-path: ${{ env.MOVESAFE_ROOT }}/pnpm-lock.yaml
 
