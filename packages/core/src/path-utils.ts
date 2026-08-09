@@ -12,6 +12,10 @@ export function isPathInside(filePath: string, directory: string, includeDirecto
   return offset !== '..' && !offset.startsWith(`..${sep}`) && !isAbsolute(offset);
 }
 
-export function toModulePath(filePath: string): string {
-  return sep === '/' ? filePath : filePath.replaceAll(sep, '/');
+export function toModulePath(filePath: string, pathSeparator = sep): string {
+  return pathSeparator === '/' ? filePath : filePath.replaceAll(pathSeparator, '/');
+}
+
+export function toFileSystemPath(filePath: string, pathSeparator = sep): string {
+  return pathSeparator === '/' ? filePath : filePath.replaceAll('/', pathSeparator);
 }

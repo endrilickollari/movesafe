@@ -3,6 +3,7 @@ import * as ts from 'typescript';
 import { applyEditsToContent } from '../apply/apply-edits-to-content.js';
 import { collectModuleResolutionDiagnostics } from '../module-resolution/diagnostics.js';
 import { resolveSpecifier } from '../module-resolution/index.js';
+import { canonicalPath, toFileSystemPath } from '../path-utils.js';
 import type { Edit, FileMove, MovePlanDiagnostic } from '../planner/types.js';
 import { scanSourceFile } from '../scanner/scan-file.js';
 import {
@@ -32,7 +33,10 @@ export interface VerifyMovePlanInput {
 export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[] {
   const { moves, edits, program, moduleResolutionHost, moduleResolutionCache, workspacePackages } = input;
 
-  const movedPathMap = new Map(moves.map((move) => [move.fromFilePath, move.toFilePath]));
+  const movedPathMap = new Map(
+    moves.map((move) => [canonicalPath(move.fromFilePath), move.toFilePath]),
+  );
+  const movedPath = (path: string): string | undefined => movedPathMap.get(canonicalPath(path));
 
   const editsByFile = new Map<string, Edit[]>();
   for (const edit of edits) {
@@ -59,7 +63,7 @@ export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[]
 
   // Every other edited (non-moved) file needs its post-edit content at its own, unchanged path.
   for (const [file, fileEdits] of editsByFile) {
-    if (movedPathMap.has(file)) continue;
+    if (movedPath(file)) continue;
     overlay.set(file, applyEditsToContent(readFileSync(file, 'utf8'), fileEdits));
   }
 
@@ -67,7 +71,7 @@ export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[]
   const compilerOptions = program.getCompilerOptions();
   const compilerHost = createOverlayCompilerHost(compilerOptions, overlay, moduleResolutionHost);
   const plannedProgram = ts.createProgram({
-    rootNames: program.getRootFileNames().map((file) => movedPathMap.get(file) ?? file),
+    rootNames: program.getRootFileNames().map((file) => movedPath(file) ?? file),
     options: compilerOptions,
     projectReferences: program.getProjectReferences(),
     host: compilerHost,
@@ -79,13 +83,13 @@ export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[]
       !program.isSourceFileFromExternalLibrary(sourceFile),
   );
   const plannedSourceFiles = baselineSourceFiles
-    .map((sourceFile) => plannedProgram.getSourceFile(movedPathMap.get(sourceFile.fileName) ?? sourceFile.fileName))
+    .map((sourceFile) => plannedProgram.getSourceFile(movedPath(sourceFile.fileName) ?? sourceFile.fileName))
     .filter((sourceFile): sourceFile is ts.SourceFile => sourceFile !== undefined);
 
   const diagnosticKey = (diagnostic: ts.Diagnostic, mapMovedPath: boolean): string => {
     const fileName = diagnostic.file?.fileName ?? '';
-    const effectiveFileName = mapMovedPath ? movedPathMap.get(fileName) ?? fileName : fileName;
-    return `${effectiveFileName}\0${diagnostic.code}\0${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`;
+    const effectiveFileName = mapMovedPath ? movedPath(fileName) ?? fileName : fileName;
+    return `${fileName ? canonicalPath(effectiveFileName) : ''}\0${diagnostic.code}\0${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`;
   };
 
   const baselineCounts = new Map<string, number>();
@@ -106,7 +110,7 @@ export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[]
         severity: 'error',
         code: 'broken-import-after-move',
         message: `After the move, TypeScript would report: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`,
-        path: fileName,
+        path: fileName ? toFileSystemPath(fileName) : undefined,
       });
     }
   }
@@ -118,7 +122,7 @@ export function verifyMovePlan(input: VerifyMovePlanInput): MovePlanDiagnostic[]
   );
   for (const baselineSourceFile of baselineSourceFiles) {
     const baselinePath = baselineSourceFile.fileName;
-    const plannedPath = movedPathMap.get(baselinePath) ?? baselinePath;
+    const plannedPath = movedPath(baselinePath) ?? baselinePath;
     const plannedSourceFile = plannedProgram.getSourceFile(plannedPath);
     if (!plannedSourceFile) continue;
 

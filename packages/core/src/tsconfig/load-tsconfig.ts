@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { toFileSystemPath } from '../path-utils.js';
 import { toTsconfigDiagnostic } from './diagnostics.js';
 import { extractPaths } from './extract-paths.js';
 import { extractReferences } from './extract-references.js';
@@ -37,7 +38,7 @@ export function loadTsconfig(
     compilerOptions: parsed.options,
     paths: extractPaths(parsed.options),
     references: extractReferences(parsed.projectReferences),
-    fileNames: parsed.fileNames,
+    fileNames: parsed.fileNames.map((fileName) => toFileSystemPath(fileName)),
     diagnostics: parsed.errors.map(toTsconfigDiagnostic),
   };
 }

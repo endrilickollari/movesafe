@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { toFileSystemPath } from '../path-utils.js';
 import type { TsconfigDiagnostic, TsconfigDiagnosticSeverity } from './types.js';
 
 function toSeverity(category: ts.DiagnosticCategory): TsconfigDiagnosticSeverity {
@@ -19,7 +20,7 @@ export function toTsconfigDiagnostic(diagnostic: ts.Diagnostic): TsconfigDiagnos
     severity: toSeverity(diagnostic.category),
     code: diagnostic.code,
     message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
-    configFilePath: diagnostic.file?.fileName,
+    configFilePath: diagnostic.file ? toFileSystemPath(diagnostic.file.fileName) : undefined,
     position:
       diagnostic.start !== undefined && diagnostic.length !== undefined
         ? { start: diagnostic.start, end: diagnostic.start + diagnostic.length }

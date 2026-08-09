@@ -1,5 +1,6 @@
 import { dirname } from 'node:path';
 import * as ts from 'typescript';
+import { canonicalPath } from '../path-utils.js';
 
 /** Every ancestor directory of a live (non-`null`) overlay entry, up to the filesystem root — resolution probes `directoryExists` before `fileExists`, so a destination directory that doesn't exist on real disk yet must still report as present. */
 function overlayDirectories(overlay: ReadonlyMap<string, string | null>): ReadonlySet<string> {
@@ -29,20 +30,25 @@ export function createOverlayModuleResolutionHost(
   base: ts.ModuleResolutionHost,
   overlay: ReadonlyMap<string, string | null>,
 ): ts.ModuleResolutionHost {
-  const dirs = overlayDirectories(overlay);
+  const entries = new Map(
+    [...overlay].map(([path, content]) => [canonicalPath(path), content] as const),
+  );
+  const dirs = overlayDirectories(entries);
 
   const fileExists = (fileName: string): boolean => {
-    if (overlay.has(fileName)) return overlay.get(fileName) !== null;
+    const path = canonicalPath(fileName);
+    if (entries.has(path)) return entries.get(path) !== null;
     return base.fileExists(fileName);
   };
 
   const readFile = (fileName: string): string | undefined => {
-    if (overlay.has(fileName)) return overlay.get(fileName) ?? undefined;
+    const path = canonicalPath(fileName);
+    if (entries.has(path)) return entries.get(path) ?? undefined;
     return base.readFile(fileName);
   };
 
   const directoryExists = (directoryName: string): boolean => {
-    if (dirs.has(directoryName)) return true;
+    if (dirs.has(canonicalPath(directoryName))) return true;
     return base.directoryExists?.(directoryName) ?? true;
   };
 

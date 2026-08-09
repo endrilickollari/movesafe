@@ -2,6 +2,7 @@ import { dirname } from 'node:path';
 import * as ts from 'typescript';
 import { collectModuleResolutionDiagnostics } from '../module-resolution/diagnostics.js';
 import { resolveSpecifier } from '../module-resolution/index.js';
+import { toFileSystemPath } from '../path-utils.js';
 import { scanFile, scanSourceFile } from '../scanner/index.js';
 import { loadTsconfig } from '../tsconfig/index.js';
 import type { LoadedTsconfig } from '../tsconfig/types.js';
@@ -41,6 +42,9 @@ export function createBuildImportGraphRuntime(
     tsconfig.compilerOptions,
   );
   const moduleResolutionHost = ts.createCompilerHost(tsconfig.compilerOptions, true);
+  const getSourceFile = moduleResolutionHost.getSourceFile.bind(moduleResolutionHost);
+  moduleResolutionHost.getSourceFile = (fileName, ...args) =>
+    getSourceFile(toFileSystemPath(fileName), ...args);
 
   moduleResolutionHost.resolveModuleNameLiterals = (
     moduleLiterals,

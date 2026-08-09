@@ -1,5 +1,6 @@
 import { isBuiltin } from 'node:module';
 import * as ts from 'typescript';
+import { toFileSystemPath } from '../path-utils.js';
 import { classifyResolvedModule } from './classify-resolution.js';
 import { hasModuleResolutionDiagnostic } from './diagnostics.js';
 import type {
@@ -116,7 +117,7 @@ export function resolveSpecifier(
     kind: 'resolved',
     specifier,
     containingFile,
-    resolvedFileName: resolvedModule.resolvedFileName,
+    resolvedFileName: toFileSystemPath(resolvedModule.resolvedFileName),
     isWorkspacePackage,
     packageId: resolvedModule.packageId,
   };
