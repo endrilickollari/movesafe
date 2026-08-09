@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, discoverProjectFiles, loadTsconfig } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph/${segments.join('/')}`, import.meta.url));
 }
 
 describe('buildImportGraph', () => {
@@ -56,9 +57,7 @@ describe('buildImportGraph', () => {
     const declarationEdge = graph.edges.find(
       (candidate) => candidate.specifier === 'virtual:fixture',
     );
-    const missingEdge = graph.edges.find(
-      (candidate) => candidate.specifier === './missing.js',
-    );
+    const missingEdge = graph.edges.find((candidate) => candidate.specifier === './missing.js');
 
     expect(edge).toMatchObject({ target: { kind: 'external', packageName: undefined } });
     expect(declarationEdge).toMatchObject({

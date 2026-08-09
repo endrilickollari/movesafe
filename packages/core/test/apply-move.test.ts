@@ -256,7 +256,7 @@ describe('applyMove', () => {
     );
   });
 
-  it('rewrites the moved file\'s own outbound imports and lands it at the new path', () => {
+  it("rewrites the moved file's own outbound imports and lands it at the new path", () => {
     const projectDir = useFixture('basic-project');
     const graph = buildImportGraph(join(projectDir, 'tsconfig.json'));
     const tsconfig = loadTsconfig(join(projectDir, 'tsconfig.json'));
@@ -288,24 +288,31 @@ describe('applyMove', () => {
     expect(barrelContent).toContain("from './lib/utils.js'");
   });
 
-  it('preserves the source file\'s mode on the destination, even when the move rewrites its own content', () => {
-    const projectDir = useFixture('basic-project');
-    const graph = buildImportGraph(join(projectDir, 'tsconfig.json'));
-    const tsconfig = loadTsconfig(join(projectDir, 'tsconfig.json'));
-    const from = join(projectDir, 'src', 'consumer.ts');
-    const to = join(projectDir, 'src', 'lib', 'consumer.ts');
-    chmodSync(from, 0o755);
+  it.skipIf(process.platform === 'win32')(
+    "preserves the source file's mode on the destination, even when the move rewrites its own content",
+    () => {
+      const projectDir = useFixture('basic-project');
+      const graph = buildImportGraph(join(projectDir, 'tsconfig.json'));
+      const tsconfig = loadTsconfig(join(projectDir, 'tsconfig.json'));
+      const from = join(projectDir, 'src', 'consumer.ts');
+      const to = join(projectDir, 'src', 'lib', 'consumer.ts');
+      chmodSync(from, 0o755);
 
-    const plan = seal(planMove(from, to, graph, tsconfig));
-    const result = applyMove(plan);
+      const plan = seal(planMove(from, to, graph, tsconfig));
+      const result = applyMove(plan);
 
-    expect(result.status).toBe('applied');
-    expect(statSync(to).mode & 0o777).toBe(0o755);
-  });
+      expect(result.status).toBe('applied');
+      expect(statSync(to).mode & 0o777).toBe(0o755);
+    },
+  );
 });
 
 describe('applyMoveWithFilesystem fault injection', () => {
-  function buildTwoFileMovePlan(srcDir: string, destDir: string, files: readonly string[]): MovePlan {
+  function buildTwoFileMovePlan(
+    srcDir: string,
+    destDir: string,
+    files: readonly string[],
+  ): MovePlan {
     const moves = files.map((name) => ({
       fromFilePath: join(srcDir, name),
       toFilePath: join(destDir, name),
@@ -491,7 +498,9 @@ describe('applyMoveWithFilesystem fault injection', () => {
     const backupPath = result.manualRecoveryPaths.find((path) => path.includes('.movesafe.bak.'))!;
     expect(existsSync(editedFile)).toBe(false);
     expect(existsSync(backupPath)).toBe(true);
-    expect(transactionFiles(projectDir).filter((path) => path.includes('.movesafe.tmp.'))).toEqual([]);
+    expect(transactionFiles(projectDir).filter((path) => path.includes('.movesafe.tmp.'))).toEqual(
+      [],
+    );
   });
 
   it('removes a moved-file stage when its commit rename fails', () => {

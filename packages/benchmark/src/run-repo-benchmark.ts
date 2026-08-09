@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { CheckFinding, SdkDiagnostic } from '@movesafe/core';
+import type { CheckFinding, PlanMoveTiming, SdkDiagnostic } from '@movesafe/core';
 import { applyMove, checkImports, planMove } from '@movesafe/core';
 import type { ImportGraph, LoadedTsconfig } from '@movesafe/core/advanced';
 import { buildImportGraph, detectWorkspacePackages, loadTsconfig } from '@movesafe/core/advanced';
@@ -24,6 +24,8 @@ export interface MoveOutcome {
     readonly severity: 'error' | 'warning';
     readonly message: string;
   }[];
+  readonly analysisDurationMs: number;
+  readonly verificationDurationMs: number;
 }
 
 export interface RepoResult {
@@ -33,12 +35,16 @@ export interface RepoResult {
   readonly checkClean: boolean | undefined;
   readonly checkFindings: readonly (CheckFinding | SdkDiagnostic)[];
   /** `tsc --noEmit` error count before any moves — many real repos have pre-existing errors unrelated to movesafe. */
+  readonly tscBaselineCompleted: boolean | undefined;
   readonly tscBaselineErrorCount: number | undefined;
+  readonly tscFinalCompleted: boolean | undefined;
   readonly tscFinalErrorCount: number | undefined;
   readonly tscOutput: string | undefined;
   readonly durationMs: number;
   readonly graphBuildCount: number;
   readonly graphBuildDurationMs: number;
+  readonly analysisDurationMs: number;
+  readonly verificationDurationMs: number;
   readonly error: string | undefined;
 }
 
@@ -100,10 +106,26 @@ function resolvePrimaryProject(
  * on its own from `from`/`to`.
  */
 function applyPlannedMove(kind: MoveKind, from: string, to: string, cwd: string): MoveOutcome {
-  const plan = planMove({ from, to, cwd });
+  const timings: PlanMoveTiming[] = [];
+  const plan = planMove({ from, to, cwd, onTiming: (timing) => timings.push(timing) });
+  const analysisDurationMs = timings
+    .filter((timing) => timing.phase === 'analysis')
+    .reduce((total, timing) => total + timing.durationMs, 0);
+  const verificationDurationMs = timings
+    .filter((timing) => timing.phase === 'verification')
+    .reduce((total, timing) => total + timing.durationMs, 0);
 
   if (plan.status === 'blocked') {
-    return { kind, from, to, applied: false, refused: true, diagnostics: plan.diagnostics };
+    return {
+      kind,
+      from,
+      to,
+      applied: false,
+      refused: true,
+      diagnostics: plan.diagnostics,
+      analysisDurationMs,
+      verificationDurationMs,
+    };
   }
 
   const result = applyMove(plan);
@@ -114,6 +136,8 @@ function applyPlannedMove(kind: MoveKind, from: string, to: string, cwd: string)
     applied: result.status === 'applied',
     refused: false,
     diagnostics: [...plan.diagnostics, ...result.diagnostics],
+    analysisDurationMs,
+    verificationDurationMs,
   };
 }
 
@@ -129,12 +153,16 @@ function errorResult(
     moves: [],
     checkClean: undefined,
     checkFindings: [],
+    tscBaselineCompleted: undefined,
     tscBaselineErrorCount: undefined,
+    tscFinalCompleted: undefined,
     tscFinalErrorCount: undefined,
     tscOutput: undefined,
     durationMs: Date.now() - startedAt,
     graphBuildCount: graphBuildDurations.length,
     graphBuildDurationMs: graphBuildDurations.reduce((total, duration) => total + duration, 0),
+    analysisDurationMs: 0,
+    verificationDurationMs: 0,
     error: error instanceof Error ? error.message : String(error),
   };
 }
@@ -172,17 +200,28 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
     const moves: MoveOutcome[] = [];
 
     if (selected.singleFile) {
-      moves.push(applyPlannedMove('singleFile', selected.singleFile.from, selected.singleFile.to, destDir));
+      moves.push(
+        applyPlannedMove('singleFile', selected.singleFile.from, selected.singleFile.to, destDir),
+      );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.directory) {
-      moves.push(applyPlannedMove('directory', selected.directory.from, selected.directory.to, destDir));
+      moves.push(
+        applyPlannedMove('directory', selected.directory.from, selected.directory.to, destDir),
+      );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
     if (selected.crossPackage) {
-      moves.push(applyPlannedMove('crossPackage', selected.crossPackage.from, selected.crossPackage.to, destDir));
+      moves.push(
+        applyPlannedMove(
+          'crossPackage',
+          selected.crossPackage.from,
+          selected.crossPackage.to,
+          destDir,
+        ),
+      );
       graph = buildGraph(tsconfigPath, workspacePackages, graphBuildDurations);
     }
 
@@ -197,12 +236,21 @@ export function runRepoBenchmark(repo: BenchmarkRepo, testReposDir: string): Rep
       moves,
       checkClean,
       checkFindings: [...checkResult.findings, ...checkResult.diagnostics],
+      tscBaselineCompleted: baselineTsc.completed,
       tscBaselineErrorCount: baselineTsc.errorCount,
+      tscFinalCompleted: finalTsc.completed,
       tscFinalErrorCount: finalTsc.errorCount,
-      tscOutput: finalTsc.output,
+      tscOutput: [
+        baselineTsc.completed ? '' : `Baseline tsc failed:\n${baselineTsc.output}`,
+        finalTsc.output,
+      ]
+        .filter(Boolean)
+        .join('\n'),
       durationMs: Date.now() - startedAt,
       graphBuildCount: graphBuildDurations.length,
       graphBuildDurationMs: graphBuildDurations.reduce((total, duration) => total + duration, 0),
+      analysisDurationMs: moves.reduce((total, move) => total + move.analysisDurationMs, 0),
+      verificationDurationMs: moves.reduce((total, move) => total + move.verificationDurationMs, 0),
       error: undefined,
     };
   } catch (error) {

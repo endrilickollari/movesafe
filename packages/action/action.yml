@@ -5,6 +5,13 @@ inputs:
     description: 'Directory to check, relative to the consuming repo checkout.'
     required: false
     default: '.'
+outputs:
+  report_path:
+    description: 'Absolute path to the generated Markdown report.'
+    value: ${{ steps.check.outputs.report_path }}
+  summary_published:
+    description: 'Whether the report was appended to the workflow summary.'
+    value: ${{ steps.check.outputs.summary_published }}
 runs:
   using: composite
   steps:
@@ -16,7 +23,7 @@ runs:
 
     - uses: actions/setup-node@v4
       with:
-        node-version: 22
+        node-version: 20
         cache: pnpm
         cache-dependency-path: ${{ env.MOVESAFE_ROOT }}/pnpm-lock.yaml
 
@@ -28,11 +35,22 @@ runs:
       working-directory: ${{ env.MOVESAFE_ROOT }}
       run: pnpm turbo run build --filter=movesafe
 
-    - shell: bash
+    - id: check
+      shell: bash
       working-directory: ${{ github.workspace }}
+      env:
+        MOVESAFE_CHECK_PATH: ${{ inputs.path }}
       run: |
         set +e
-        node "$MOVESAFE_ROOT/packages/cli/dist/index.js" check "${{ inputs.path }}" --md > "$RUNNER_TEMP/movesafe-check.md"
+        report_path="$RUNNER_TEMP/movesafe-check.md"
+        node "$MOVESAFE_ROOT/packages/cli/dist/index.js" check "$MOVESAFE_CHECK_PATH" --md > "$report_path"
         exit_code=$?
-        cat "$RUNNER_TEMP/movesafe-check.md" >> "$GITHUB_STEP_SUMMARY"
-        exit $exit_code
+        cat "$report_path" >> "$GITHUB_STEP_SUMMARY"
+        echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+        echo "report_path=$report_path" >> "$GITHUB_OUTPUT"
+        echo "summary_published=true" >> "$GITHUB_OUTPUT"
+
+    - shell: bash
+      env:
+        MOVESAFE_EXIT_CODE: ${{ steps.check.outputs.exit_code }}
+      run: exit "$MOVESAFE_EXIT_CODE"

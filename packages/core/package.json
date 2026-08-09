@@ -2,20 +2,33 @@
   "name": "@movesafe/core",
   "version": "0.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./advanced": {
-      "types": "./dist/advanced.d.ts",
-      "import": "./dist/advanced.js",
-      "require": "./dist/advanced.cjs"
+      "import": {
+        "types": "./dist/advanced.d.ts",
+        "default": "./dist/advanced.js"
+      },
+      "require": {
+        "types": "./dist/advanced.d.cts",
+        "default": "./dist/advanced.cjs"
+      }
     }
   },
   "files": [

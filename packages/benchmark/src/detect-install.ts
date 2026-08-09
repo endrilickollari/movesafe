@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { commandInvocation } from './command-invocation.js';
 
 interface InstallCommand {
   readonly command: string;
@@ -16,12 +17,14 @@ function detectInstallCommand(repoDir: string): InstallCommand {
   }
 
   const hasNpmLockfile =
-    existsSync(join(repoDir, 'package-lock.json')) || existsSync(join(repoDir, 'npm-shrinkwrap.json'));
+    existsSync(join(repoDir, 'package-lock.json')) ||
+    existsSync(join(repoDir, 'npm-shrinkwrap.json'));
   return hasNpmLockfile ? { command: 'npm', args: ['ci'] } : { command: 'npm', args: ['install'] };
 }
 
 /** Installs a cloned repo's dependencies, using whichever package manager its lockfile implies. */
 export function installDependencies(repoDir: string): void {
   const { command, args } = detectInstallCommand(repoDir);
-  execFileSync(command, args, { cwd: repoDir, stdio: 'inherit' });
+  const invocation = commandInvocation(command, args);
+  execFileSync(invocation.command, invocation.args, { cwd: repoDir, stdio: 'inherit' });
 }

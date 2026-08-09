@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph } from '../src/advanced.js';
 import { checkUnresolvedImports } from '../src/check/check-unresolved-imports.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url));
 }
 
 describe('checkUnresolvedImports', () => {

@@ -1,4 +1,4 @@
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type { ImportGraph, ImportGraphNode } from '@movesafe/core/advanced';
 
 export interface MoveCandidate {
@@ -14,6 +14,16 @@ export interface SelectedMoves {
 
 const ENTRY_OR_BARREL_RE = /^(index|main)\.tsx?$/i;
 const TEST_FILE_RE = /\.(test|spec)\.tsx?$/i;
+
+function isInside(filePath: string, dir: string): boolean {
+  const pathFromDir = relative(dir, filePath);
+  return (
+    pathFromDir !== '' &&
+    pathFromDir !== '..' &&
+    !pathFromDir.startsWith(`..${sep}`) &&
+    !isAbsolute(pathFromDir)
+  );
+}
 
 function countInboundEdges(graph: ImportGraph, filePath: string): number {
   let count = 0;
@@ -68,10 +78,9 @@ function selectDirectoryMove(graph: ImportGraph): MoveCandidate | undefined {
 
   let best: { dir: string; count: number } | undefined;
   for (const dir of candidateDirs) {
-    const prefix = `${dir}/`;
     let count = 0;
     for (const node of graph.nodes) {
-      if (node.filePath.startsWith(prefix)) {
+      if (isInside(node.filePath, dir)) {
         count++;
       }
     }
@@ -95,7 +104,7 @@ function selectDirectoryMove(graph: ImportGraph): MoveCandidate | undefined {
 
 function packageDirFor(filePath: string, workspacePackages: ReadonlyMap<string, string>): string | undefined {
   for (const dir of workspacePackages.values()) {
-    if (filePath === dir || filePath.startsWith(`${dir}/`)) {
+    if (filePath === dir || isInside(filePath, dir)) {
       return dir;
     }
   }

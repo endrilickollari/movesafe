@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "bench": "pnpm --filter @movesafe/core build && tsx src/run-benchmark.ts",
+    "build": "tsc",
     "lint": "eslint .",
-    "test:unit": "vitest run"
+    "test": "vitest run"
   },
   "dependencies": {
     "@movesafe/core": "workspace:*"

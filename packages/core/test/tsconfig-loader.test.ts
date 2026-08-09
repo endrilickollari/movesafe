@@ -1,9 +1,11 @@
+import { isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { loadTsconfig } from '../src/tsconfig/index.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/resolver/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/resolver/${segments.join('/')}`, import.meta.url));
 }
 
 describe('loadTsconfig', () => {
@@ -61,7 +63,7 @@ describe('loadTsconfig', () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.references).toHaveLength(2);
     for (const ref of result.references) {
-      expect(ref.path.startsWith('/')).toBe(true);
+      expect(isAbsolute(ref.path)).toBe(true);
       expect(ref.originalPath).toBeDefined();
     }
     expect(result.references.map((r) => r.originalPath).sort()).toEqual(['./pkg-a', './pkg-b']);

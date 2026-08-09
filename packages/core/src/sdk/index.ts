@@ -3,6 +3,7 @@ export type {
   CheckImportsResult,
   CheckSummary,
   PlanMoveOptions,
+  PlanMoveTiming,
   PlannedMove,
   ProjectCheckReport,
   SdkDiagnostic,

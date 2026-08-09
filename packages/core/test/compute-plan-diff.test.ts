@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, computePlanDiff, loadTsconfig } from '../src/advanced.js';
 import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url));
 }
 
 describe('computePlanDiff', () => {

@@ -1,9 +1,10 @@
 import { sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, detectWorkspacePackages } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url));
 }
 
 /**

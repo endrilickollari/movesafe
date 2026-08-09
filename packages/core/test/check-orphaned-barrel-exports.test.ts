@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph } from '../src/advanced.js';
 import { checkOrphanedBarrelExports } from '../src/check/check-orphaned-barrel-exports.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url));
 }
 
 describe('checkOrphanedBarrelExports', () => {
@@ -33,6 +34,8 @@ describe('checkOrphanedBarrelExports', () => {
     const graph = buildImportGraph(fixturePath('check-repo', 'tsconfig.json'));
     const findings = checkOrphanedBarrelExports(graph);
 
-    expect(findings.some((f) => f.path === fixturePath('check-repo', 'src', 'star-consumer-barrel.ts'))).toBe(false);
+    expect(
+      findings.some((f) => f.path === fixturePath('check-repo', 'src', 'star-consumer-barrel.ts')),
+    ).toBe(false);
   });
 });

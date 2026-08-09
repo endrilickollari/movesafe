@@ -1,4 +1,5 @@
-import { pathToFileURL } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { CORE_VERSION } from '@movesafe/core';
 import { Command, Option } from 'commander';
 import type { ReportFormat } from './report/index.js';
@@ -53,7 +54,8 @@ export function createProgram(options?: { readonly exitOverride?: boolean }): Co
   return program;
 }
 
-const isMainModule = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+const isMainModule =
+  process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
   createProgram().parse();

@@ -1,13 +1,14 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, loadTsconfig } from '../src/advanced.js';
 import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url));
 }
 
 describe('planMove — outbound rewrites', () => {
-  it('recomputes the moved file\'s own relative import across a directory move', () => {
+  it("recomputes the moved file's own relative import across a directory move", () => {
     const graph = buildImportGraph(fixturePath('basic-project', 'tsconfig.json'));
     const tsconfig = loadTsconfig(fixturePath('basic-project', 'tsconfig.json'));
     const from = fixturePath('basic-project', 'src', 'consumer.ts');

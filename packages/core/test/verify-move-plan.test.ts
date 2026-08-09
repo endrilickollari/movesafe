@@ -1,9 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildImportGraph, createBuildImportGraphRuntime, loadTsconfig, verifyMovePlan } from '../src/advanced.js';
+import {
+  buildImportGraph,
+  createBuildImportGraphRuntime,
+  loadTsconfig,
+  verifyMovePlan,
+} from '../src/advanced.js';
 import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/verify/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/verify/${segments.join('/')}`, import.meta.url));
 }
 
 describe('verifyMovePlan', () => {
@@ -22,7 +28,10 @@ describe('verifyMovePlan', () => {
 
     // Sabotage the recomputed specifier to point somewhere that can never
     // exist, simulating a rewrite the overlay should catch as broken.
-    const sabotagedEdits = plan.edits.map((edit) => ({ ...edit, newText: './does-not-exist-either.js' }));
+    const sabotagedEdits = plan.edits.map((edit) => ({
+      ...edit,
+      newText: './does-not-exist-either.js',
+    }));
 
     const diagnostics = verifyMovePlan({
       moves: plan.moves,
@@ -116,7 +125,12 @@ describe('verifyMovePlan', () => {
     const tsconfigPath = fixturePath('broken-and-unrelated', 'tsconfig.json');
     const tsconfig = loadTsconfig(tsconfigPath);
     const runtime = createBuildImportGraphRuntime(tsconfig);
-    const from = fixturePath('broken-and-unrelated', 'src', 'nested', 'moved-with-broken-import.ts');
+    const from = fixturePath(
+      'broken-and-unrelated',
+      'src',
+      'nested',
+      'moved-with-broken-import.ts',
+    );
     const to = fixturePath('broken-and-unrelated', 'src', 'moved-with-broken-import.ts');
 
     const diagnostics = verifyMovePlan({

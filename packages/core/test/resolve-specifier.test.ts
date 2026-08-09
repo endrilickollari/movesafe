@@ -1,4 +1,5 @@
 import type * as ts from 'typescript';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   classifyResolvedModule,
@@ -10,8 +11,9 @@ import { loadTsconfig } from '../src/tsconfig/index.js';
 import type { LoadedTsconfig } from '../src/tsconfig/types.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/resolver/module-resolution/${segments.join('/')}`, import.meta.url)
-    .pathname;
+  return fileURLToPath(
+    new URL(`./fixtures/resolver/module-resolution/${segments.join('/')}`, import.meta.url),
+  );
 }
 
 function resolveFromProject(

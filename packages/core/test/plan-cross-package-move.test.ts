@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { planCrossPackageMove } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/cross-package/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/cross-package/${segments.join('/')}`, import.meta.url));
 }
 
 function workspacePackages(...names: string[]): Map<string, string> {
@@ -23,7 +24,9 @@ describe('planCrossPackageMove', () => {
     const plan = planCrossPackageMove(from, to, ws);
 
     expect(plan.status).toBe('blocked');
-    expect(plan.diagnostics.filter((d) => d.code === 'missing-workspace-dependency')).toHaveLength(2);
+    expect(plan.diagnostics.filter((d) => d.code === 'missing-workspace-dependency')).toHaveLength(
+      2,
+    );
 
     expect(plan.edits).toContainEqual(
       expect.objectContaining({
@@ -90,7 +93,10 @@ describe('planCrossPackageMove', () => {
     const plan = planCrossPackageMove(from, to, ws);
 
     expect(plan.diagnostics).toContainEqual(
-      expect.objectContaining({ severity: 'error', code: 'destination-collides-with-existing-file' }),
+      expect.objectContaining({
+        severity: 'error',
+        code: 'destination-collides-with-existing-file',
+      }),
     );
   });
 
@@ -109,7 +115,9 @@ describe('planCrossPackageMove', () => {
       }),
     );
     expect(plan.status).toBe('blocked');
-    expect(plan.edits.some((e) => e.file === fixturePath('pkg-a', 'src', 'consumer.ts'))).toBe(false);
+    expect(plan.edits.some((e) => e.file === fixturePath('pkg-a', 'src', 'consumer.ts'))).toBe(
+      false,
+    );
   });
 
   it('refuses when the source file is not inside any known workspace package', () => {

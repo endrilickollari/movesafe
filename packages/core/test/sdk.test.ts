@@ -1,12 +1,13 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { applyMove, checkImports, planMove } from '../src/index.js';
 import { analyzeProject, analyzeWorkspace, discoverWorkspaceContext } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/${segments.join('/')}`, import.meta.url));
 }
 
 describe('workspace analysis', () => {
@@ -113,9 +114,24 @@ describe('SDK', () => {
     // preconditions, not the disk-free draft's edit-anchor/source-exists.
     expect(plan.status).toBe('ready');
     expect(plan.preconditions.some((p) => p.kind === 'content-fingerprint')).toBe(true);
-    expect(plan.preconditions.some((p) => p.kind === 'edit-anchor' || p.kind === 'source-exists')).toBe(
-      false,
-    );
+    expect(
+      plan.preconditions.some((p) => p.kind === 'edit-anchor' || p.kind === 'source-exists'),
+    ).toBe(false);
+  });
+
+  it('reports analysis and verification timings without changing the plan', () => {
+    const cwd = fixturePath('planner', 'basic-project');
+    const timings: { phase: string; durationMs: number }[] = [];
+    const plan = planMove({
+      from: 'src/utils.ts',
+      to: 'src/renamed.ts',
+      cwd,
+      onTiming: (timing) => timings.push(timing),
+    });
+
+    expect(plan.status).toBe('ready');
+    expect(timings.map(({ phase }) => phase)).toEqual(['analysis', 'verification']);
+    expect(timings.every(({ durationMs }) => durationMs >= 0)).toBe(true);
   });
 
   it('routes a directory move through the directory planner, verified end-to-end', () => {

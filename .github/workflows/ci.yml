@@ -7,7 +7,12 @@ on:
 
 jobs:
   lint-test:
-    runs-on: ubuntu-latest
+    name: Node 20 / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -15,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -27,7 +32,9 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
-      - run: pnpm turbo run lint test --concurrency=2
+      - run: pnpm turbo run build lint test --concurrency=2
+
+      - run: pnpm test:packages
 
   self-test:
     runs-on: ubuntu-latest
@@ -39,3 +46,20 @@ jobs:
           # movesafe itself has no root tsconfig.json (each package has its
           # own) — point at a package that does.
           path: packages/core
+
+      - id: broken-imports
+        continue-on-error: true
+        uses: ./packages/action
+        with:
+          path: packages/core/test/fixtures/graph-repos/unresolved-only
+
+      - name: Verify Action exit code and report
+        env:
+          BROKEN_OUTCOME: ${{ steps.broken-imports.outcome }}
+          BROKEN_REPORT: ${{ steps.broken-imports.outputs.report_path }}
+          SUMMARY_PUBLISHED: ${{ steps.broken-imports.outputs.summary_published }}
+        run: |
+          test "$BROKEN_OUTCOME" = failure
+          test "$SUMMARY_PUBLISHED" = true
+          test -s "$BROKEN_REPORT"
+          grep -q does-not-exist "$BROKEN_REPORT"

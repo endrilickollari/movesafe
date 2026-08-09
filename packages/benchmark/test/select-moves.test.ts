@@ -1,13 +1,18 @@
 import { existsSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildImportGraph, detectWorkspacePackages } from '@movesafe/core/advanced';
 import type { ImportGraph } from '@movesafe/core/advanced';
 import { describe, expect, it } from 'vitest';
 import { selectMoves } from '../src/select-moves.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`../../core/test/fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(
+    new URL(`../../core/test/fixtures/graph-repos/${segments.join('/')}`, import.meta.url),
+  );
 }
+
+const repoPath = (...segments: string[]): string => resolve('repo', ...segments);
 
 describe('selectMoves against real fixtures', () => {
   it('picks an existing non-entry file to move, for a plain-relative-imports project', () => {
@@ -37,9 +42,12 @@ describe('selectMoves against real fixtures', () => {
 
   it('does not crash against the real pnpm-monorepo fixture, using its actual workspace packages', () => {
     const { workspacePackages } = detectWorkspacePackages(fixturePath('pnpm-monorepo'));
-    const graph = buildImportGraph(fixturePath('pnpm-monorepo', 'packages', 'consumer', 'tsconfig.json'), {
-      workspacePackages: Object.fromEntries(workspacePackages),
-    });
+    const graph = buildImportGraph(
+      fixturePath('pnpm-monorepo', 'packages', 'consumer', 'tsconfig.json'),
+      {
+        workspacePackages: Object.fromEntries(workspacePackages),
+      },
+    );
 
     expect(() => selectMoves(graph, { workspacePackages })).not.toThrow();
   });
@@ -47,7 +55,7 @@ describe('selectMoves against real fixtures', () => {
 
 function nodeGraph(filePaths: readonly string[]): ImportGraph {
   return {
-    configFilePath: '/repo/tsconfig.json',
+    configFilePath: repoPath('tsconfig.json'),
     nodes: filePaths.map((filePath) => ({ filePath })),
     edges: [],
     warnings: [],
@@ -57,20 +65,18 @@ function nodeGraph(filePaths: readonly string[]): ImportGraph {
 describe('selectMoves directory selection (hand-built graph)', () => {
   it('picks the smallest qualifying directory, counting nested descendants', () => {
     const graph = nodeGraph([
-      '/repo/src/index.ts',
-      '/repo/src/small/a.ts',
-      '/repo/src/small/b.ts',
-      '/repo/src/big/file1.ts',
-      '/repo/src/big/file2.ts',
-      '/repo/src/big/file3.ts',
-      '/repo/src/big/file4.ts',
-      '/repo/src/big/file5.ts',
-      '/repo/src/big/file6.ts',
+      repoPath('src', 'index.ts'),
+      repoPath('src', 'small', 'a.ts'),
+      repoPath('src', 'small', 'b.ts'),
+      ...Array.from({ length: 6 }, (_, index) => repoPath('src', 'big', `file${index + 1}.ts`)),
     ]);
 
     const selected = selectMoves(graph);
 
-    expect(selected.directory).toEqual({ from: '/repo/src/small', to: '/repo/src/small-moved' });
+    expect(selected.directory).toEqual({
+      from: repoPath('src', 'small'),
+      to: repoPath('src', 'small-moved'),
+    });
   });
 
   it('does not pick a directory that mostly contains subdirectories, even if few files sit directly inside it', () => {
@@ -80,25 +86,23 @@ describe('selectMoves directory selection (hand-built graph)', () => {
     // entire tree — this is exactly what happened against a real clone of
     // date-fns (1493 files moved in one "directory move").
     const graph = nodeGraph([
-      '/repo/src/index.ts',
-      '/repo/src/a/one.ts',
-      '/repo/src/a/two.ts',
-      '/repo/src/b/one.ts',
-      '/repo/src/b/two.ts',
-      '/repo/src/c/one.ts',
-      '/repo/src/c/two.ts',
-      '/repo/src/d/one.ts',
-      '/repo/src/d/two.ts',
+      repoPath('src', 'index.ts'),
+      ...['a', 'b', 'c', 'd'].flatMap((dir) => [
+        repoPath('src', dir, 'one.ts'),
+        repoPath('src', dir, 'two.ts'),
+      ]),
     ]);
 
     const selected = selectMoves(graph);
 
-    expect(selected.directory?.from).not.toBe('/repo/src');
-    expect(['/repo/src/a', '/repo/src/b', '/repo/src/c', '/repo/src/d']).toContain(selected.directory?.from);
+    expect(selected.directory?.from).not.toBe(repoPath('src'));
+    expect(['a', 'b', 'c', 'd'].map((dir) => repoPath('src', dir))).toContain(
+      selected.directory?.from,
+    );
   });
 
   it('does not select a directory move when the only qualifying directory would be more than half the project', () => {
-    const graph = nodeGraph(['/repo/src/a.ts', '/repo/src/b.ts', '/repo/src/c.ts']);
+    const graph = nodeGraph(['a.ts', 'b.ts', 'c.ts'].map((file) => repoPath('src', file)));
 
     const selected = selectMoves(graph);
 
@@ -108,19 +112,19 @@ describe('selectMoves directory selection (hand-built graph)', () => {
 
 describe('selectMoves crossPackage selection (hand-built graph)', () => {
   it('picks a file imported across a workspace-package boundary', () => {
-    const libDir = '/repo/packages/lib';
-    const consumerDir = '/repo/packages/consumer';
+    const libDir = repoPath('packages', 'lib');
+    const consumerDir = repoPath('packages', 'consumer');
     const workspacePackages = new Map([
       ['@fixture/lib', libDir],
       ['@fixture/consumer', consumerDir],
     ]);
 
     const graph: ImportGraph = {
-      configFilePath: `${consumerDir}/tsconfig.json`,
-      nodes: [{ filePath: `${consumerDir}/src/index.ts` }],
+      configFilePath: join(consumerDir, 'tsconfig.json'),
+      nodes: [{ filePath: join(consumerDir, 'src', 'index.ts') }],
       edges: [
         {
-          fromFilePath: `${consumerDir}/src/index.ts`,
+          fromFilePath: join(consumerDir, 'src', 'index.ts'),
           specifier: '@fixture/lib',
           formKind: 'import',
           isTypeOnly: false,
@@ -130,7 +134,7 @@ describe('selectMoves crossPackage selection (hand-built graph)', () => {
           statementOffset: { start: 0, end: 0 },
           target: {
             kind: 'outOfProject',
-            resolvedFileName: `${libDir}/src/index.ts`,
+            resolvedFileName: join(libDir, 'src', 'index.ts'),
             isWorkspacePackage: true,
             packageId: { name: '@fixture/lib', subModuleName: '', version: '0.0.0' },
           },
@@ -142,8 +146,8 @@ describe('selectMoves crossPackage selection (hand-built graph)', () => {
     const selected = selectMoves(graph, { workspacePackages });
 
     expect(selected.crossPackage).toEqual({
-      from: `${libDir}/src/index.ts`,
-      to: `${consumerDir}/src/index.ts`,
+      from: join(libDir, 'src', 'index.ts'),
+      to: join(consumerDir, 'src', 'index.ts'),
     });
   });
 });

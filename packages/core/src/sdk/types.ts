@@ -5,6 +5,12 @@ export interface PlanMoveOptions {
   readonly from: string;
   readonly to: string;
   readonly cwd?: string;
+  readonly onTiming?: (timing: PlanMoveTiming) => void;
+}
+
+export interface PlanMoveTiming {
+  readonly phase: 'analysis' | 'verification';
+  readonly durationMs: number;
 }
 
 export interface CheckImportsOptions {

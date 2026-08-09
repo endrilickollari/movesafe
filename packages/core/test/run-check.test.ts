@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, runCheck } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url));
 }
 
 describe('runCheck', () => {
@@ -17,7 +18,9 @@ describe('runCheck', () => {
     // never gates on resolution outcome, so the two legitimately overlap there.
     // Assert on the set of distinct codes present, not their exact counts.
     const codes = new Set(result.findings.map((f) => f.code));
-    expect(codes).toEqual(new Set(['case-sensitivity-mismatch', 'orphaned-barrel-export', 'unresolved-import']));
+    expect(codes).toEqual(
+      new Set(['case-sensitivity-mismatch', 'orphaned-barrel-export', 'unresolved-import']),
+    );
   });
 
   it('sorts findings deterministically by path then code', () => {

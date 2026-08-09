@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph } from '../src/advanced.js';
 import { checkCaseSensitivity } from '../src/check/check-case-sensitivity.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/graph-repos/${segments.join('/')}`, import.meta.url));
 }
 
 describe('checkCaseSensitivity', () => {
@@ -37,6 +38,8 @@ describe('checkCaseSensitivity', () => {
     const graph = buildImportGraph(fixturePath('check-repo', 'tsconfig.json'));
     const findings = checkCaseSensitivity(graph);
 
-    expect(findings.some((f) => f.path === fixturePath('check-repo', 'src', 'barrel.ts'))).toBe(false);
+    expect(findings.some((f) => f.path === fixturePath('check-repo', 'src', 'barrel.ts'))).toBe(
+      false,
+    );
   });
 });

@@ -2,6 +2,9 @@
   "name": "@movesafe/mcp",
   "version": "0.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "bin": {
     "movesafe-mcp": "./dist/index.js"

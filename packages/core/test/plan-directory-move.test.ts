@@ -1,8 +1,11 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildImportGraph, loadTsconfig, planDirectoryMove } from '../src/advanced.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/planner/directory-move-project/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(
+    new URL(`./fixtures/planner/directory-move-project/${segments.join('/')}`, import.meta.url),
+  );
 }
 
 describe('planDirectoryMove', () => {
@@ -21,10 +24,22 @@ describe('planDirectoryMove', () => {
     expect(plan.moves).toHaveLength(5);
     expect(plan.moves).toEqual(
       expect.arrayContaining([
-        { fromFilePath: fixturePath('src', 'feature', 'index.ts'), toFilePath: fixturePath('src', 'relocated', 'feature', 'index.ts') },
-        { fromFilePath: fixturePath('src', 'feature', 'a.ts'), toFilePath: fixturePath('src', 'relocated', 'feature', 'a.ts') },
-        { fromFilePath: fixturePath('src', 'feature', 'b.ts'), toFilePath: fixturePath('src', 'relocated', 'feature', 'b.ts') },
-        { fromFilePath: fixturePath('src', 'feature', 'c.ts'), toFilePath: fixturePath('src', 'relocated', 'feature', 'c.ts') },
+        {
+          fromFilePath: fixturePath('src', 'feature', 'index.ts'),
+          toFilePath: fixturePath('src', 'relocated', 'feature', 'index.ts'),
+        },
+        {
+          fromFilePath: fixturePath('src', 'feature', 'a.ts'),
+          toFilePath: fixturePath('src', 'relocated', 'feature', 'a.ts'),
+        },
+        {
+          fromFilePath: fixturePath('src', 'feature', 'b.ts'),
+          toFilePath: fixturePath('src', 'relocated', 'feature', 'b.ts'),
+        },
+        {
+          fromFilePath: fixturePath('src', 'feature', 'c.ts'),
+          toFilePath: fixturePath('src', 'relocated', 'feature', 'c.ts'),
+        },
         {
           fromFilePath: fixturePath('src', 'feature', 'nested', 'n.ts'),
           toFilePath: fixturePath('src', 'relocated', 'feature', 'nested', 'n.ts'),
@@ -68,7 +83,9 @@ describe('planDirectoryMove', () => {
   });
 
   it('blocks instead of guessing when an alias with a non-wildcard target becomes unrecomputable', () => {
-    const project = new URL('./fixtures/planner/directory-unrecomputable-project/', import.meta.url).pathname;
+    const project = fileURLToPath(
+      new URL('./fixtures/planner/directory-unrecomputable-project/', import.meta.url),
+    );
     const unsafeGraph = buildImportGraph(`${project}tsconfig.json`);
     const unsafeTsconfig = loadTsconfig(`${project}tsconfig.json`);
     const plan = planDirectoryMove(
@@ -97,11 +114,15 @@ describe('planDirectoryMove', () => {
       tsconfig,
     );
 
-    expect(plan.edits.some((e) => e.file === fixturePath('src', 'feature', 'a.ts') && e.oldText === './b.js')).toBe(
-      false,
-    );
     expect(
-      plan.edits.some((e) => e.file === fixturePath('src', 'feature', 'index.ts') && e.oldText === './a.js'),
+      plan.edits.some(
+        (e) => e.file === fixturePath('src', 'feature', 'a.ts') && e.oldText === './b.js',
+      ),
+    ).toBe(false);
+    expect(
+      plan.edits.some(
+        (e) => e.file === fixturePath('src', 'feature', 'index.ts') && e.oldText === './a.js',
+      ),
     ).toBe(false);
   });
 
@@ -122,7 +143,7 @@ describe('planDirectoryMove', () => {
     );
   });
 
-  it('rewrites the moved file\'s own outbound relative specifier to an unmoved target', () => {
+  it("rewrites the moved file's own outbound relative specifier to an unmoved target", () => {
     const plan = planDirectoryMove(
       fixturePath('src', 'feature'),
       fixturePath('src', 'relocated', 'feature'),
@@ -158,7 +179,9 @@ describe('planDirectoryMove', () => {
       tsconfig,
     );
 
-    expect(plan.diagnostics.some((d) => d.code === 'barrel-reexport-relocation-candidate')).toBe(false);
+    expect(plan.diagnostics.some((d) => d.code === 'barrel-reexport-relocation-candidate')).toBe(
+      false,
+    );
   });
 
   it('refuses when the source directory has no known source files', () => {
@@ -177,7 +200,12 @@ describe('planDirectoryMove', () => {
   });
 
   it('refuses when source and destination are the same directory', () => {
-    const plan = planDirectoryMove(fixturePath('src', 'feature'), fixturePath('src', 'feature'), graph, tsconfig);
+    const plan = planDirectoryMove(
+      fixturePath('src', 'feature'),
+      fixturePath('src', 'feature'),
+      graph,
+      tsconfig,
+    );
 
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({ severity: 'error', code: 'source-equals-destination' }),
@@ -198,7 +226,12 @@ describe('planDirectoryMove', () => {
   });
 
   it('refuses when the destination path is already a file', () => {
-    const plan = planDirectoryMove(fixturePath('src', 'feature'), fixturePath('src', 'shared.ts'), graph, tsconfig);
+    const plan = planDirectoryMove(
+      fixturePath('src', 'feature'),
+      fixturePath('src', 'shared.ts'),
+      graph,
+      tsconfig,
+    );
 
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({ severity: 'error', code: 'destination-is-a-file' }),
@@ -206,7 +239,12 @@ describe('planDirectoryMove', () => {
   });
 
   it('refuses when a computed destination collides with an existing, non-moved source file', () => {
-    const plan = planDirectoryMove(fixturePath('src', 'feature'), fixturePath('src', 'other-dir'), graph, tsconfig);
+    const plan = planDirectoryMove(
+      fixturePath('src', 'feature'),
+      fixturePath('src', 'other-dir'),
+      graph,
+      tsconfig,
+    );
 
     expect(plan.diagnostics).toContainEqual(
       expect.objectContaining({

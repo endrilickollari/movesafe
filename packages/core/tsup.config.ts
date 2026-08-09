@@ -4,6 +4,6 @@ export default defineConfig({
   entry: ['src/index.ts', 'src/advanced.ts'],
   format: ['esm', 'cjs'],
   dts: true,
-  sourcemap: true,
+  sourcemap: false,
   clean: true,
 });

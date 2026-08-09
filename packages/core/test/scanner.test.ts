@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { scanFile } from '../src/scanner/index.js';
 import type { ImportSpecifierRecord } from '../src/scanner/types.js';
@@ -172,7 +173,10 @@ describe('scanFile', () => {
     expect(specifiers).toHaveLength(2);
 
     const augmentation = specifiers.find((s) => s.formKind === 'moduleAugmentation');
-    expect(augmentation).toMatchObject({ formKind: 'moduleAugmentation', moduleText: 'virtual-mod' });
+    expect(augmentation).toMatchObject({
+      formKind: 'moduleAugmentation',
+      moduleText: 'virtual-mod',
+    });
     expectRoundTrip(src, augmentation!);
 
     const nested = specifiers.find((s) => s.formKind === 'import');
@@ -215,7 +219,7 @@ describe('scanFile', () => {
   });
 
   it('reads from disk when sourceText is omitted', () => {
-    const result = scanFile(new URL('../src/index.ts', import.meta.url).pathname);
+    const result = scanFile(fileURLToPath(new URL('../src/index.ts', import.meta.url)));
     expect(result.specifiers.length).toBeGreaterThan(0);
     expect(result.warnings).toEqual([]);
   });

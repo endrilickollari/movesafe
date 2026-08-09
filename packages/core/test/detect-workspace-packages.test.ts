@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   createBuildImportGraphRuntime,
@@ -7,7 +9,7 @@ import {
 import { resolveSpecifier } from '../src/module-resolution/index.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/workspace/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/workspace/${segments.join('/')}`, import.meta.url));
 }
 
 describe('detectWorkspacePackages', () => {
@@ -89,12 +91,12 @@ describe('detectWorkspacePackages', () => {
     // through this map: that would follow @movesafe/core's package.json into
     // dist/index.d.ts, which only exists after a build step CI's test job
     // does not run first (test and build are intentionally decoupled).
-    const repoRoot = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
+    const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
     const { packageManager, hasTurborepo, workspacePackages } = detectWorkspacePackages(repoRoot);
     expect(packageManager).toBe('pnpm');
     expect(hasTurborepo).toBe(true);
-    expect(workspacePackages.get('@movesafe/core')).toBe(`${repoRoot}/packages/core`);
-    expect(workspacePackages.get('movesafe')).toBe(`${repoRoot}/packages/cli`);
+    expect(workspacePackages.get('@movesafe/core')).toBe(join(repoRoot, 'packages', 'core'));
+    expect(workspacePackages.get('movesafe')).toBe(join(repoRoot, 'packages', 'cli'));
   });
 
   it('composes with resolveSpecifier with no adapter needed', () => {
@@ -102,18 +104,20 @@ describe('detectWorkspacePackages', () => {
     // map in exactly the shape detectWorkspacePackages produces, resolved
     // against the same node_modules-based workspace-package fixture 1.3's
     // own tests use.
-    const resolverFixture = new URL(
-      './fixtures/resolver/module-resolution/workspace-package/pkg-consumer',
-      import.meta.url,
-    ).pathname;
+    const resolverFixture = fileURLToPath(
+      new URL(
+        './fixtures/resolver/module-resolution/workspace-package/pkg-consumer',
+        import.meta.url,
+      ),
+    );
     const workspacePackages = new Map([
-      ['@fixture/pkg-lib', `${resolverFixture}/node_modules/@fixture/pkg-lib`],
+      ['@fixture/pkg-lib', join(resolverFixture, 'node_modules', '@fixture', 'pkg-lib')],
     ]);
-    const tsconfig = loadTsconfig(`${resolverFixture}/tsconfig.json`);
+    const tsconfig = loadTsconfig(join(resolverFixture, 'tsconfig.json'));
     const runtime = createBuildImportGraphRuntime(tsconfig);
     const { result } = resolveSpecifier(
       '@fixture/pkg-lib',
-      `${resolverFixture}/src/index.ts`,
+      join(resolverFixture, 'src', 'index.ts'),
       runtime.program,
       {
         workspacePackages,

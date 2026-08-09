@@ -6,7 +6,7 @@ import { buildImportGraph, loadTsconfig } from '../src/advanced.js';
 import { planMove } from '../src/planner/plan-move.js';
 
 function fixturePath(...segments: string[]): string {
-  return new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`./fixtures/planner/${segments.join('/')}`, import.meta.url));
 }
 
 const plannerSrcDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'planner');

@@ -14,7 +14,18 @@ import { analyzeWorkspace } from '../project/analyze-workspace.js';
 import { discoverWorkspaceContext } from '../project/discover-workspace-context.js';
 import type { WorkspaceContext, WorkspaceProject } from '../project/types.js';
 import { verifyMovePlan } from '../verify/index.js';
-import type { PlanMoveOptions } from './types.js';
+import type { PlanMoveOptions, PlanMoveTiming } from './types.js';
+
+function measure<T>(
+  phase: PlanMoveTiming['phase'],
+  onTiming: PlanMoveOptions['onTiming'],
+  operation: () => T,
+): T {
+  const startedAt = performance.now();
+  const result = operation();
+  onTiming?.({ phase, durationMs: performance.now() - startedAt });
+  return result;
+}
 
 function emptyPlan(
   operation: MovePlanOperation,
@@ -36,19 +47,22 @@ function projectForFile(context: WorkspaceContext, filePath: string): WorkspaceP
   const sourcePath = canonicalPath(filePath);
   return context.projects
     .filter((project) =>
-      project.tsconfig.fileNames.some((candidate) =>
-        canonicalPath(candidate) === sourcePath,
-      ),
+      project.tsconfig.fileNames.some((candidate) => canonicalPath(candidate) === sourcePath),
     )
     .sort((a, b) => b.configFilePath.length - a.configFilePath.length)[0];
 }
 
 /** Directory analog of `projectForFile`: the most specific project that contains at least one file under `dirPath`. */
-function projectForDirectory(context: WorkspaceContext, dirPath: string): WorkspaceProject | undefined {
+function projectForDirectory(
+  context: WorkspaceContext,
+  dirPath: string,
+): WorkspaceProject | undefined {
   const sourceDir = canonicalPath(dirPath);
   return context.projects
     .filter((project) =>
-      project.tsconfig.fileNames.some((candidate) => isPathUnder(canonicalPath(candidate), sourceDir)),
+      project.tsconfig.fileNames.some((candidate) =>
+        isPathUnder(canonicalPath(candidate), sourceDir),
+      ),
     )
     .sort((a, b) => b.configFilePath.length - a.configFilePath.length)[0];
 }
@@ -96,7 +110,8 @@ export function planMove(options: PlanMoveOptions): MovePlan {
     return emptyPlan(operation, fromFilePath, toFilePath, {
       severity: 'error',
       code: 'cross-package-directory-unsupported',
-      message: 'Cross-package directory moves are not supported; move files individually so each package boundary can be verified.',
+      message:
+        'Cross-package directory moves are not supported; move files individually so each package boundary can be verified.',
       path: toFilePath,
     });
   }
@@ -108,7 +123,9 @@ export function planMove(options: PlanMoveOptions): MovePlan {
       sourcePackage.packageName !== destinationPackage.packageName
     ) {
       const workspaceContext = discoverWorkspaceContext(context.rootDir);
-      const workspace = analyzeWorkspace(workspaceContext);
+      const workspace = measure('analysis', options.onTiming, () =>
+        analyzeWorkspace(workspaceContext),
+      );
       return planCrossPackageMove(fromFilePath, toFilePath, context.workspacePackages, {
         workspaceGraph: workspace.graph,
       });
@@ -136,10 +153,12 @@ export function planMove(options: PlanMoveOptions): MovePlan {
     });
   }
 
-  const analysis = analyzeProject(project.configFilePath, {
-    tsconfig: project.tsconfig,
-    workspacePackages: context.workspacePackages,
-  });
+  const analysis = measure('analysis', options.onTiming, () =>
+    analyzeProject(project.configFilePath, {
+      tsconfig: project.tsconfig,
+      workspacePackages: context.workspacePackages,
+    }),
+  );
 
   const plan = isDirectory
     ? planDirectoryMove(fromFilePath, toFilePath, analysis.graph, analysis.tsconfig)
@@ -147,13 +166,15 @@ export function planMove(options: PlanMoveOptions): MovePlan {
 
   if (plan.status !== 'ready') return plan;
 
-  const verificationDiagnostics = verifyMovePlan({
-    moves: plan.moves,
-    edits: plan.edits,
-    program: analysis.program,
-    moduleResolutionCache: analysis.moduleResolutionCache,
-    workspacePackages: context.workspacePackages,
-  });
+  const verificationDiagnostics = measure('verification', options.onTiming, () =>
+    verifyMovePlan({
+      moves: plan.moves,
+      edits: plan.edits,
+      program: analysis.program,
+      moduleResolutionCache: analysis.moduleResolutionCache,
+      workspacePackages: context.workspacePackages,
+    }),
+  );
 
   const verifiedPlan = mergeVerificationDiagnostics(plan, verificationDiagnostics);
   if (verifiedPlan.status !== 'ready') return verifiedPlan;
