@@ -52,6 +52,7 @@ jobs:
         uses: ./packages/action
         with:
           path: packages/core/test/fixtures/graph-repos/unresolved-only
+          publish_summary: 'false'
 
       - name: Verify Action exit code and report
         env:
@@ -60,6 +61,6 @@ jobs:
           SUMMARY_PUBLISHED: ${{ steps.broken-imports.outputs.summary_published }}
         run: |
           test "$BROKEN_OUTCOME" = failure
-          test "$SUMMARY_PUBLISHED" = true
+          test "$SUMMARY_PUBLISHED" = false
           test -s "$BROKEN_REPORT"
           grep -q does-not-exist "$BROKEN_REPORT"

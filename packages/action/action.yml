@@ -5,6 +5,10 @@ inputs:
     description: 'Directory to check, relative to the consuming repo checkout.'
     required: false
     default: '.'
+  publish_summary:
+    description: 'Whether to append the Markdown report to the workflow summary.'
+    required: false
+    default: 'true'
 outputs:
   report_path:
     description: 'Absolute path to the generated Markdown report.'
@@ -40,15 +44,20 @@ runs:
       working-directory: ${{ github.workspace }}
       env:
         MOVESAFE_CHECK_PATH: ${{ inputs.path }}
+        MOVESAFE_PUBLISH_SUMMARY: ${{ inputs.publish_summary }}
       run: |
         set +e
         report_path="$RUNNER_TEMP/movesafe-check.md"
         node "$MOVESAFE_ROOT/packages/cli/dist/index.js" check "$MOVESAFE_CHECK_PATH" --md > "$report_path"
         exit_code=$?
-        cat "$report_path" >> "$GITHUB_STEP_SUMMARY"
+        summary_published=false
+        if [ "$MOVESAFE_PUBLISH_SUMMARY" = true ]; then
+          cat "$report_path" >> "$GITHUB_STEP_SUMMARY"
+          summary_published=true
+        fi
         echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
         echo "report_path=$report_path" >> "$GITHUB_OUTPUT"
-        echo "summary_published=true" >> "$GITHUB_OUTPUT"
+        echo "summary_published=$summary_published" >> "$GITHUB_OUTPUT"
 
     - shell: bash
       env:
