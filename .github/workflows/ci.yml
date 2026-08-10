@@ -41,11 +41,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: ./packages/action
+      - name: Check clean fixture
+        uses: ./packages/action
         with:
           path: packages/core/test/fixtures/graph-repos/plain-relative
 
-      - id: broken-imports
+      - name: Reject broken import fixture (expected failure)
+        id: broken-imports
         continue-on-error: true
         uses: ./packages/action
         with:
