@@ -19,25 +19,9 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Resolve movesafe checkout root
-      shell: bash
-      run: echo "MOVESAFE_ROOT=$(cd "${{ github.action_path }}/../.." && pwd)" >> "$GITHUB_ENV"
-
-    - uses: pnpm/action-setup@v6
-
     - uses: actions/setup-node@v5
       with:
         node-version: 24
-        cache: pnpm
-        cache-dependency-path: ${{ env.MOVESAFE_ROOT }}/pnpm-lock.yaml
-
-    - shell: bash
-      working-directory: ${{ env.MOVESAFE_ROOT }}
-      run: pnpm install --frozen-lockfile
-
-    - shell: bash
-      working-directory: ${{ env.MOVESAFE_ROOT }}
-      run: pnpm turbo run build --filter=movesafe
 
     - id: check
       shell: bash
@@ -48,7 +32,7 @@ runs:
       run: |
         set +e
         report_path="$RUNNER_TEMP/movesafe-check.md"
-        node "$MOVESAFE_ROOT/packages/cli/dist/index.js" check "$MOVESAFE_CHECK_PATH" --md > "$report_path"
+        npx --yes movesafe@0.1.0 check "$MOVESAFE_CHECK_PATH" --md > "$report_path"
         exit_code=$?
         summary_published=false
         if [ "$MOVESAFE_PUBLISH_SUMMARY" = true ]; then

@@ -4,8 +4,8 @@ Fails the build when [movesafe](https://github.com/endrilickollari/movesafe)
 finds broken imports, orphaned barrel exports, or case-sensitivity
 mismatches. The `--md` report is posted to the job's step summary.
 
-Builds `movesafe` from source on each run (not yet published to npm), so the
-first run in a workflow takes as long as a normal `pnpm install && pnpm build`.
+Runs the pinned `movesafe@0.1.0` package from npm. Consuming repositories do
+not need pnpm, a movesafe checkout, or a local installation.
 
 ## Usage
 
