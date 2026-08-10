@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { CORE_VERSION } from '@movesafe/core';
 import { z } from 'zod';
 import type { ApplyMoveResult } from './apply-move.js';
 import { applyMoveTool } from './apply-move.js';
@@ -47,7 +48,7 @@ function summarizeApply(result: ApplyMoveResult): string {
 }
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: 'movesafe', version: '0.0.0' });
+  const server = new McpServer({ name: 'movesafe', version: CORE_VERSION });
 
   server.registerTool(
     'plan_move',

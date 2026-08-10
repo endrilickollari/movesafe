@@ -1,7 +1,26 @@
 {
   "name": "movesafe",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Move TypeScript files without breaking imports.",
+  "license": "MIT",
+  "author": "Endri Liçkollari",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/endrilickollari/movesafe.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/endrilickollari/movesafe#readme",
+  "bugs": {
+    "url": "https://github.com/endrilickollari/movesafe/issues"
+  },
+  "keywords": [
+    "typescript",
+    "refactoring",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13"
   },

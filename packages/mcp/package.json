@@ -1,7 +1,26 @@
 {
   "name": "@movesafe/mcp",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "MCP server for planning and applying safe TypeScript file moves.",
+  "license": "MIT",
+  "author": "Endri Liçkollari",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/endrilickollari/movesafe.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/endrilickollari/movesafe#readme",
+  "bugs": {
+    "url": "https://github.com/endrilickollari/movesafe/issues"
+  },
+  "keywords": [
+    "typescript",
+    "refactoring",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13"
   },

@@ -1,7 +1,26 @@
 {
   "name": "@movesafe/core",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "TypeScript import-graph, move-planning, and validation engine for movesafe.",
+  "license": "MIT",
+  "author": "Endri Liçkollari",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/endrilickollari/movesafe.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/endrilickollari/movesafe#readme",
+  "bugs": {
+    "url": "https://github.com/endrilickollari/movesafe/issues"
+  },
+  "keywords": [
+    "typescript",
+    "refactoring",
+    "imports"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13"
   },

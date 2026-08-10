@@ -18,6 +18,12 @@ const tempDir = mkdtempSync(join(tmpdir(), 'movesafe-package-smoke-'));
 const packDir = join(tempDir, 'packs');
 const consumerDir = join(tempDir, 'consumer');
 const npmCacheDir = join(tempDir, 'npm-cache');
+const releaseVersion = '0.1.0';
+const releasePackages = [
+  { directory: 'core', name: '@movesafe/core' },
+  { directory: 'cli', name: 'movesafe' },
+  { directory: 'mcp', name: '@movesafe/mcp' },
+];
 mkdirSync(packDir, { recursive: true });
 
 function commandInvocation(command, args) {
@@ -48,7 +54,33 @@ function write(path, contents) {
   writeFileSync(path, contents, 'utf8');
 }
 
-function inspectPackage(packageDir) {
+function readJson(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function assertReleaseManifest(manifest, releasePackage) {
+  assert(manifest.name === releasePackage.name, `${releasePackage.directory} has the wrong name`);
+  assert(
+    manifest.version === releaseVersion,
+    `${releasePackage.name} must be version ${releaseVersion}`,
+  );
+  assert(manifest.private !== true, `${releasePackage.name} is private`);
+  assert(manifest.license === 'MIT', `${releasePackage.name} must use the MIT license`);
+  assert(manifest.description, `${releasePackage.name} has no description`);
+  assert(
+    manifest.repository?.url === 'git+https://github.com/endrilickollari/movesafe.git',
+    `${releasePackage.name} has the wrong repository URL`,
+  );
+  assert(
+    manifest.repository?.directory === `packages/${releasePackage.directory}`,
+    `${releasePackage.name} has the wrong repository directory`,
+  );
+  assert(manifest.publishConfig?.access === 'public', `${releasePackage.name} is not public`);
+  assert(manifest.engines?.node === '>=22.13', `${releasePackage.name} has the wrong Node range`);
+}
+
+function inspectPackage(packageDir, releasePackage) {
+  assertReleaseManifest(readJson(join(packageDir, 'package.json')), releasePackage);
   const { files } = JSON.parse(run('pnpm', ['pack', '--dry-run', '--json'], { cwd: packageDir }));
   const unexpected = files
     .map(({ path }) => path)
@@ -60,8 +92,8 @@ function inspectPackage(packageDir) {
   );
 }
 
-function packPackage(packageDir) {
-  inspectPackage(packageDir);
+function packPackage(packageDir, releasePackage) {
+  inspectPackage(packageDir, releasePackage);
   const before = new Set(existsSync(packDir) ? readdirSync(packDir) : []);
   run('pnpm', ['pack', '--pack-destination', packDir], { cwd: packageDir });
   const archive = readdirSync(packDir).find((name) => name.endsWith('.tgz') && !before.has(name));
@@ -76,13 +108,14 @@ function send(child, message) {
 function discoverMcpTools() {
   return new Promise((resolvePromise, reject) => {
     const packageDir = join(consumerDir, 'node_modules', '@movesafe', 'mcp');
-    const packageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+    const packageJson = readJson(join(packageDir, 'package.json'));
     const child = spawn(process.execPath, [join(packageDir, packageJson.bin['movesafe-mcp'])], {
       cwd: consumerDir,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
+    let serverInfo;
     const timeout = setTimeout(() => finish(new Error(`MCP startup timed out. ${stderr}`)), 10_000);
 
     function finish(error, tools) {
@@ -106,10 +139,13 @@ function discoverMcpTools() {
         if (line) {
           const message = JSON.parse(line);
           if (message.id === 1) {
+            serverInfo = message.result.serverInfo;
             send(child, { jsonrpc: '2.0', method: 'notifications/initialized' });
             send(child, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
           }
-          if (message.id === 2) finish(undefined, message.result.tools);
+          if (message.id === 2) {
+            finish(undefined, { serverInfo, tools: message.result.tools });
+          }
         }
         newline = stdout.indexOf('\n');
       }
@@ -134,8 +170,8 @@ function discoverMcpTools() {
 
 try {
   console.log('Packing publishable packages...');
-  const archives = ['core', 'cli', 'mcp'].map((name) =>
-    packPackage(join(rootDir, 'packages', name)),
+  const archives = releasePackages.map((releasePackage) =>
+    packPackage(join(rootDir, 'packages', releasePackage.directory), releasePackage),
   );
 
   write(
@@ -147,10 +183,28 @@ try {
     env: { ...process.env, npm_config_cache: npmCacheDir },
   });
 
-  console.log('Checking SDK exports and declarations...');
-  const corePackage = JSON.parse(
-    readFileSync(join(consumerDir, 'node_modules', '@movesafe', 'core', 'package.json'), 'utf8'),
+  const installedPackages = Object.fromEntries(
+    releasePackages.map((releasePackage) => [
+      releasePackage.directory,
+      readJson(
+        join(consumerDir, 'node_modules', ...releasePackage.name.split('/'), 'package.json'),
+      ),
+    ]),
   );
+  for (const releasePackage of releasePackages) {
+    assertReleaseManifest(installedPackages[releasePackage.directory], releasePackage);
+  }
+  assert(
+    installedPackages.cli.dependencies['@movesafe/core'] === releaseVersion,
+    'CLI workspace dependency was not rewritten to the release version',
+  );
+  assert(
+    installedPackages.mcp.dependencies['@movesafe/core'] === releaseVersion,
+    'MCP workspace dependency was not rewritten to the release version',
+  );
+
+  console.log('Checking SDK exports and declarations...');
+  const corePackage = installedPackages.core;
   for (const subpath of ['.', './advanced']) {
     const exported = corePackage.exports[subpath];
     assert(exported.import.types.endsWith('.d.ts'), `${subpath} lacks ESM declarations`);
@@ -235,7 +289,8 @@ try {
   run('npx', ['--no-install', 'movesafe', 'check', '.'], { cwd: projectDir });
 
   console.log('Checking installed MCP server...');
-  const tools = await discoverMcpTools();
+  const { serverInfo, tools } = await discoverMcpTools();
+  assert(serverInfo.version === releaseVersion, 'MCP server and package versions differ');
   assert(
     tools
       .map(({ name }) => name)

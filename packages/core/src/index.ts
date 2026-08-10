@@ -1,4 +1,4 @@
-export const CORE_VERSION = '0.0.0';
+export const CORE_VERSION = '0.1.0';
 
 export type { SourceOffset } from './ts-utils/types.js';
 export * from './sdk/index.js';
