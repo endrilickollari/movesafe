@@ -7,6 +7,10 @@ mismatches. The `--md` report is posted to the job's step summary.
 Runs the pinned `movesafe@0.1.0` package from npm. Consuming repositories do
 not need pnpm, a movesafe checkout, or a local installation.
 
+Install the checked project's dependencies before running the action when its
+source imports external packages. The action installs movesafe, not the
+consumer project's dependencies.
+
 ## Usage
 
 ```yaml

@@ -43,9 +43,7 @@ jobs:
 
       - uses: ./packages/action
         with:
-          # movesafe itself has no root tsconfig.json (each package has its
-          # own) — point at a package that does.
-          path: packages/core
+          path: packages/core/test/fixtures/graph-repos/plain-relative
 
       - id: broken-imports
         continue-on-error: true
