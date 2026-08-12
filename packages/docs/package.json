@@ -1,0 +1,14 @@
+{
+  "name": "@movesafe/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vitepress build .",
+    "dev": "vitepress dev .",
+    "lint": "prettier --check --ignore-path ../../.gitignore .",
+    "preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

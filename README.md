@@ -8,6 +8,8 @@ Move TypeScript files without leaving broken imports behind.
 
 Movesafe is a headless refactoring tool for developers, CI, and coding agents. It builds an import graph with the TypeScript compiler, plans every edit before touching disk, verifies the resulting project, and applies the move through rollback-oriented file swaps.
 
+[Read the documentation](https://endrilickollari.github.io/movesafe/) for command details, monorepo behavior, and the MCP workflow.
+
 ![Moving a TypeScript file with movesafe](assets/demo.gif)
 
 ## Quickstart
