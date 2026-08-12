@@ -14,24 +14,7 @@ hero:
     - theme: alt
       text: Set up MCP
       link: /mcp
-
-features:
-  - icon: '01'
-    title: Plan first
-    details: Inspect a unified diff before any source file changes.
-  - icon: '02'
-    title: Resolve with TypeScript
-    details: Follow relative imports, aliases, barrels, and workspace package edges.
-  - icon: '03'
-    title: Refuse safely
-    details: Block moves that cannot be verified instead of guessing a specifier.
 ---
-
-<div class="move-rail" aria-label="A verified file move from source to destination">
-  <span class="move-rail__path">src/utils.ts</span>
-  <span class="move-rail__edge">verified</span>
-  <span class="move-rail__path">src/lib/utils.ts</span>
-</div>
 
 ## Run your first move
 
