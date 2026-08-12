@@ -1,1 +1,2 @@
 packages/**/test/fixtures/** text eol=lf
+packages/docs/** text eol=lf
