@@ -1,0 +1,97 @@
+name: Bug report
+description: Report reproducible incorrect behavior in movesafe
+title: 'bug: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Search existing issues first and remove secrets, proprietary code, and identifying paths from anything you share.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I can provide a public repository or minimal reproduction.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Movesafe version
+      description: Run `movesafe --version` or provide the installed package version.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      options:
+        - CLI
+        - Core SDK
+        - MCP server
+        - GitHub Action
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include your operating system, Node.js version, and package manager version.
+      placeholder: Windows 11, Node.js 24.18.1, pnpm 11.10.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Link a public reproduction repository or provide the smallest files, tsconfig, and steps that reproduce the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or API call
+      description: Show the exact command, SDK call, MCP request, or Action configuration.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or diagnostics
+      description: Remove secrets, private source code, repository names, and identifying paths.
+      render: text
+
+  - type: checkboxes
+    id: disclosure
+    attributes:
+      label: Security
+      options:
+        - label: This report does not describe a security vulnerability. I will use private vulnerability reporting for security issues.
+          required: true

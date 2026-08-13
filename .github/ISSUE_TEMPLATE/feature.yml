@@ -1,0 +1,69 @@
+name: Feature request
+description: Propose a focused improvement for developers or coding agents
+title: 'feat: '
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the workflow that is difficult today before proposing an implementation.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for this request.
+          required: true
+
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Affected interface
+      options:
+        - CLI
+        - Core SDK
+        - MCP server
+        - GitHub Action
+        - Import checker
+        - Documentation
+        - Multiple interfaces
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What developer or agent workflow is blocked or unnecessarily difficult?
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Desired behavior
+      description: Describe the outcome and interface you would expect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other designs have you tried?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help implement this after the design is agreed?
+      options:
+        - 'Yes'
+        - Maybe, with guidance
+        - 'No'
+    validations:
+      required: true

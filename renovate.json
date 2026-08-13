@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Tirane",
+  "schedule": ["before 6am on monday"],
+  "dependencyDashboard": false,
+  "prConcurrentLimit": 3,
+  "automerge": false,
+  "packageRules": [
+    {
+      "description": "Group non-major pnpm workspace updates",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "npm non-major updates",
+      "groupSlug": "npm-non-major"
+    },
+    {
+      "description": "Let Dependabot manage workflow actions",
+      "matchManagers": ["github-actions"],
+      "matchFileNames": [".github/workflows/**"],
+      "enabled": false
+    }
+  ]
+}

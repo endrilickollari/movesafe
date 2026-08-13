@@ -1,2 +1,5 @@
 packages/**/test/fixtures/** text eol=lf
 packages/docs/** text eol=lf
+*.md text eol=lf
+.github/** text eol=lf
+renovate.json text eol=lf

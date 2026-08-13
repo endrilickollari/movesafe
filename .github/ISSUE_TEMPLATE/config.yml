@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and usage help
+    url: https://github.com/endrilickollari/movesafe/discussions
+    about: Ask the community about setup, commands, integrations, or project behavior.
+  - name: Report a security vulnerability
+    url: https://github.com/endrilickollari/movesafe/security/advisories/new
+    about: Send the maintainer a private report instead of opening a public issue.

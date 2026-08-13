@@ -131,6 +131,12 @@ const result = checkImports({ path: '.' });
 | [`@movesafe/core`](https://www.npmjs.com/package/@movesafe/core) | Import graph, planning, verification, and transactional apply SDK |
 | [`@movesafe/mcp`](https://www.npmjs.com/package/@movesafe/mcp)   | MCP tools for coding agents                                       |
 
+## Contributing
+
+Contributions are welcome. Read the [contributing guide](CONTRIBUTING.md) before opening an issue
+or pull request, follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities
+privately through the [security policy](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE)
