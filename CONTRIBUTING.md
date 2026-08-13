@@ -65,6 +65,12 @@ pnpm --filter @movesafe/docs build
 Maintainers may ask for a smaller reproduction, additional tests, or a narrower change before
 reviewing an implementation.
 
+## Maintenance
+
+Movesafe is maintained independently on the maintainer's schedule. Issues, discussions, and pull
+requests are welcome, but response times and release dates are not guaranteed. Security reports
+follow the private process in [SECURITY.md](SECURITY.md).
+
 ## Releases
 
 Package versions, release tags, changelogs, and npm publication are managed by the project
