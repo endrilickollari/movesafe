@@ -17,7 +17,10 @@ export function renderDiffHunk(
   const lastSegment = segments[segments.length - 1]!;
 
   const oldRangeStart = Math.max(0, firstSegment.oldStart - CONTEXT);
-  const oldRangeEnd = Math.min(totalOldLines, lastSegment.oldStart + lastSegment.oldCount + CONTEXT);
+  const oldRangeEnd = Math.min(
+    totalOldLines,
+    lastSegment.oldStart + lastSegment.oldCount + CONTEXT,
+  );
   const newRangeStart = firstSegment.newStart - (firstSegment.oldStart - oldRangeStart);
 
   const lines: DiffLine[] = [];
@@ -30,7 +33,6 @@ export function renderDiffHunk(
       lines.push({ kind: 'context', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
     }
     cursorOld = segment.oldStart;
-    cursorNew += gapCount;
 
     for (let i = 0; i < segment.oldCount; i++) {
       lines.push({ kind: 'removed', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
@@ -47,7 +49,6 @@ export function renderDiffHunk(
   for (let i = 0; i < trailingCount; i++) {
     lines.push({ kind: 'context', text: sliceLine(beforeText, beforeOffsets, cursorOld + i) });
   }
-  cursorOld += trailingCount;
   cursorNew += trailingCount;
 
   return {
