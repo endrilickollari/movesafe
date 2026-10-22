@@ -3,11 +3,11 @@ name: Docs
 on:
   pull_request:
     paths:
-      - 'packages/docs/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/docs.yml'
+      - "packages/docs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/docs.yml"
   push:
     branches: [main]
   workflow_dispatch:
