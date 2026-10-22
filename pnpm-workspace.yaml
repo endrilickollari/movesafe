@@ -2,6 +2,11 @@ packages:
   - 'packages/*'
 allowBuilds:
   esbuild: true
+overrides:
+  # VitePress 1.x pins Vite 5; plugin-vue 5 also supports the patched Vite 6.
+  'vitepress>vite': ^6.4.5
+  # tsup 8 pins the vulnerable esbuild 0.27 line.
+  'esbuild@>=0.27.3 <0.28.1': ^0.28.1
 minimumReleaseAgeExclude:
   - '@typescript-eslint/eslint-plugin@8.65.0'
   - '@typescript-eslint/parser@8.65.0'
