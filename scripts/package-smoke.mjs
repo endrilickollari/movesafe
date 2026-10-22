@@ -18,7 +18,7 @@ const tempDir = mkdtempSync(join(tmpdir(), 'movesafe-package-smoke-'));
 const packDir = join(tempDir, 'packs');
 const consumerDir = join(tempDir, 'consumer');
 const npmCacheDir = join(tempDir, 'npm-cache');
-const releaseVersion = '0.1.0';
+const releaseVersion = '0.2.0';
 const releasePackages = [
   { directory: 'core', name: '@movesafe/core' },
   { directory: 'cli', name: 'movesafe' },

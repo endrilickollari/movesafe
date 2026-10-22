@@ -1,6 +1,6 @@
 {
   "name": "@movesafe/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for planning and applying safe TypeScript file moves.",
   "license": "MIT",
   "author": "Endri Liçkollari",
