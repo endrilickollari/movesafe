@@ -137,6 +137,8 @@ Contributions are welcome. Read the [contributing guide](CONTRIBUTING.md) before
 or pull request, follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities
 privately through the [security policy](SECURITY.md).
 
+Movesafe is maintained independently on the maintainer's schedule.
+
 ## License
 
 [MIT](LICENSE)
