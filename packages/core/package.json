@@ -1,6 +1,6 @@
 {
   "name": "@movesafe/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript import-graph, move-planning, and validation engine for movesafe.",
   "license": "MIT",
   "author": "Endri Liçkollari",
