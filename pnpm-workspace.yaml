@@ -3,6 +3,8 @@ packages:
 allowBuilds:
   esbuild: true
 overrides:
+  # GHSA-27r3-jxmh-p828: patch the MCP SDK's transitive body-parser dependency.
+  'body-parser@>=2.0.0 <2.4.0': ^2.4.0
   # VitePress 1.x pins Vite 5; plugin-vue 5 also supports the patched Vite 6.
   'vitepress>vite': ^6.4.5
   # tsup 8 pins the vulnerable esbuild 0.27 line.
