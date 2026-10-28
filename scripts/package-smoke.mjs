@@ -18,7 +18,7 @@ const tempDir = mkdtempSync(join(tmpdir(), 'movesafe-package-smoke-'));
 const packDir = join(tempDir, 'packs');
 const consumerDir = join(tempDir, 'consumer');
 const npmCacheDir = join(tempDir, 'npm-cache');
-const releaseVersion = '0.2.0';
+const releaseVersion = '0.2.1';
 const releasePackages = [
   { directory: 'core', name: '@movesafe/core' },
   { directory: 'cli', name: 'movesafe' },
@@ -84,7 +84,17 @@ function inspectPackage(packageDir, releasePackage) {
   const { files } = JSON.parse(run('pnpm', ['pack', '--dry-run', '--json'], { cwd: packageDir }));
   const unexpected = files
     .map(({ path }) => path)
-    .filter((path) => path !== 'package.json' && path !== 'LICENSE' && !path.startsWith('dist/'));
+    .filter(
+      (path) =>
+        path !== 'package.json' &&
+        path !== 'LICENSE' &&
+        path !== 'README.md' &&
+        !path.startsWith('dist/'),
+    );
+  assert(
+    files.some(({ path }) => path === 'README.md'),
+    `${packageDir} packs no README`,
+  );
   assert(unexpected.length === 0, `${packageDir} packs unexpected files: ${unexpected.join(', ')}`);
   assert(
     files.every(({ path }) => !path.endsWith('.map')),
