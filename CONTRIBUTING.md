@@ -16,7 +16,9 @@ problems through the process in [SECURITY.md](SECURITY.md), not through a public
 
 ## Development setup
 
-Movesafe requires Node.js 22.13 or newer and uses pnpm 11.10.0.
+Development requires Node.js 22.x (22.18+), 24.x (24.11+), or 26+ and uses pnpm 11.10.0.
+The published packages support Node.js 22.13 or newer; building from source requires
+the newer Node.js versions supported by tsup 9.
 
 ```bash
 npm install --global pnpm@11.10.0
