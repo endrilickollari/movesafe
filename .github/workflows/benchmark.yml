@@ -33,7 +33,7 @@ jobs:
           mkdir -p benchmark-baseline
           cp benchmark-results.json benchmark-baseline/benchmark-results.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: movesafe-benchmark-results
