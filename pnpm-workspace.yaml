@@ -3,6 +3,8 @@ packages:
 allowBuilds:
   esbuild: true
 overrides:
+  # GHSA-g3hv-75wg-m249: patch minimatch in ESLint and TypeScript tooling.
+  'minimatch@<11.0.1': ^11.0.1
   # GHSA-27r3-jxmh-p828: patch the MCP SDK's transitive body-parser dependency.
   'body-parser@>=2.0.0 <2.4.0': ^2.4.0
   # VitePress 1.x pins Vite 5; plugin-vue 5 also supports the patched Vite 6.
